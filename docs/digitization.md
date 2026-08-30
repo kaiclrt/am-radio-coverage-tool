@@ -112,3 +112,27 @@ notes.
 - A general sanity check (`scripts/check_ordering.py`, TODO) across all 20
   files finds curves are correctly ordered (higher conductivity → higher
   field strength) everywhere except the two cases above.
+
+## Interpolation layer (Phase 2)
+
+Built on top of the digitized data: `src/propagation/curves.py` provides
+`field_strength(freq_khz, conductivity_mScm, distance_km)` and its inverse
+`distance_for_field_strength(freq_khz, conductivity_mScm, target_mvm)`.
+
+- **Distance axis**: log-log linear interpolation directly on the digitized
+  curve points (top and bottom panels stitched into one continuous curve
+  per conductivity, split at km=10 where both panels agree to <1%).
+- **Frequency axis**: no interpolation between graphs — the nearest FCC
+  graph (by center frequency) is selected, matching standard engineering
+  practice of using the graph whose labeled band covers the station's
+  actual frequency.
+- **Conductivity axis**: log-log linear interpolation *between* the two
+  nearest of the 17 standard conductivity curves, needed because real
+  ground conductivity (from FCC Figure M3) is rarely one of the round
+  numbers the FCC graphs are drawn for. Values outside the 0.1–5000 mS/m
+  range are clamped to the nearest edge curve.
+
+Regression-tested in `tests/test_curves.py`, including a caught-and-fixed
+bug where the conductivity-bracketing weight was inverted (an exact match
+to a standard conductivity value was silently returning its neighboring
+curve's data instead).

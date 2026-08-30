@@ -16,8 +16,10 @@ limitations.
 
 ## Roadmap
 
-- [x] Digitize all 20 FCC groundwave graphs (this phase)
-- [ ] Build distance↔field-strength interpolation (both directions, log-log)
+- [x] Digitize all 20 FCC groundwave graphs
+- [x] Distance↔field-strength interpolation (both directions, log-log,
+      including interpolation across conductivity values not exactly on
+      the standard FCC curves)
 - [ ] Parse FCC M3 ground conductivity dataset (`m3.seq`)
 - [ ] Implement Kirke/equivalent-distance mixed-path method (§73.183(e))
 - [ ] Single-radial coverage calculator (TX location + power + bearing → contour distance)
