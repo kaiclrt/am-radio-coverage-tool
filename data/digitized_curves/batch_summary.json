@@ -1,0 +1,39 @@
+{
+  "success": [
+    550,
+    580,
+    610,
+    640,
+    670,
+    700,
+    740,
+    790,
+    840,
+    890,
+    940,
+    1000,
+    1070,
+    1140,
+    1210,
+    1290,
+    1380,
+    1470,
+    1560,
+    1655
+  ],
+  "errors": {},
+  "notes": {
+    "550": [
+      "30 mS/m curve visually merged with 40 mS/m in source artwork (top panel, 0.1-50km); duplicated from nearest neighbor."
+    ],
+    "580": [
+      "30 mS/m curve visually merged with 40 mS/m in source artwork (top panel, 0.1-50km); duplicated from nearest neighbor."
+    ],
+    "610": [
+      "30 mS/m curve visually merged with 40 mS/m in source artwork (top panel, 0.1-50km); duplicated from nearest neighbor."
+    ],
+    "640": [
+      "30 mS/m curve visually merged with 40 mS/m in source artwork (top panel, 0.1-50km); duplicated from nearest neighbor."
+    ]
+  }
+}
