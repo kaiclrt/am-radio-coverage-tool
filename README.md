@@ -27,10 +27,11 @@ limitations.
       `docs/kirke_method.md`
 - [x] Single-radial coverage calculator (TX location + power + bearing →
       contour distance) - see `docs/radial_calculator.md`
+- [x] 8-cardinal-radial coverage map, with optional finer angular
+      resolution - see `docs/coverage_map.md`
 - [ ] FCC M3 conductivity dataset (`m3.seq`) for higher-precision US data
       (optional upgrade, deferred - terrain-based estimation covers the US
       too, just less precisely)
-- [ ] 8-cardinal-radial coverage map, with optional finer angular resolution
 - [ ] Web UI
 
 ## Data provenance & license
