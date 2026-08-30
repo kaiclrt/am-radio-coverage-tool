@@ -12,6 +12,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+terrain = ["rasterio>=1.3", "global-land-mask>=1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
