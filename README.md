@@ -23,10 +23,11 @@ limitations.
 - [x] Terrain-based global ground conductivity estimation (ESA WorldCover +
       FCC's 1939 terrain-conductivity table + offline ocean/lake
       disambiguation) - see `docs/conductivity.md`
+- [x] Kirke/equivalent-distance mixed-path method (§73.183(e)) - see
+      `docs/kirke_method.md`
 - [ ] FCC M3 conductivity dataset (`m3.seq`) for higher-precision US data
       (optional upgrade, deferred - terrain-based estimation covers the US
       too, just less precisely)
-- [ ] Implement Kirke/equivalent-distance mixed-path method (§73.183(e))
 - [ ] Single-radial coverage calculator (TX location + power + bearing → contour distance)
 - [ ] 8-cardinal-radial coverage map, with optional finer angular resolution
 - [ ] Web UI
