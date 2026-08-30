@@ -25,10 +25,11 @@ limitations.
       disambiguation) - see `docs/conductivity.md`
 - [x] Kirke/equivalent-distance mixed-path method (§73.183(e)) - see
       `docs/kirke_method.md`
+- [x] Single-radial coverage calculator (TX location + power + bearing →
+      contour distance) - see `docs/radial_calculator.md`
 - [ ] FCC M3 conductivity dataset (`m3.seq`) for higher-precision US data
       (optional upgrade, deferred - terrain-based estimation covers the US
       too, just less precisely)
-- [ ] Single-radial coverage calculator (TX location + power + bearing → contour distance)
 - [ ] 8-cardinal-radial coverage map, with optional finer angular resolution
 - [ ] Web UI
 
