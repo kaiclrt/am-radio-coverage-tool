@@ -1,0 +1,40 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[dev]
+          pip install global-land-mask
+
+      - name: Run offline test suite
+        run: |
+          python -m pytest tests/ --ignore=tests/test_digitizer.py -v
+
+      # test_digitizer.py requires the FCC's source PDFs (not redistributed
+      # in this repo - see scripts/digitize_all.py for why), so it can't
+      # run in CI. Live network tests (ESA WorldCover queries) are also
+      # skipped here since RUN_LIVE_TERRAIN_TESTS is unset by default -
+      # they're intended for manual verification, not every CI run, to
+      # avoid flaking on network conditions or hitting rate limits.

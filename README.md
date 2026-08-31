@@ -1,18 +1,22 @@
 # AM Radio Coverage Calculator
 
+[![Tests](https://github.com/kaiclrt/am-radio-coverage-tool/actions/workflows/tests.yml/badge.svg)](https://github.com/kaiclrt/am-radio-coverage-tool/actions/workflows/tests.yml)
+
 Ground wave coverage prediction tool for AM broadcast stations, built on the
-FCC's official groundwave propagation curves (47 CFR §73.184) and ground
-conductivity data (FCC Figure M3).
+FCC's official groundwave propagation curves (47 CFR §73.184) and
+terrain-based ground conductivity estimation for global coverage.
 
-## Status: Phase 1 complete — curve digitization
+## Status: core propagation engine complete
 
-All 20 FCC groundwave propagation graphs (covering 535–1705 kHz in 20 frequency
-bands) have been digitized from the official vector PDFs into structured,
-interpolatable (distance_km, field_strength_mV/m) data per conductivity value
-(0.1 to 5000 mS/m).
+Every phase of the original scope is implemented and tested: digitized FCC
+curves for all 20 frequency bands, distance↔field-strength interpolation,
+global terrain-based conductivity estimation, the Kirke mixed-path method
+(47 CFR §73.183(e)), a single-radial coverage calculator, and an 8-radial
+(or finer) coverage map. See the roadmap below for what's built and what's
+still open (a web UI, mainly).
 
-See [`docs/digitization.md`](docs/digitization.md) for methodology and known
-limitations.
+See [`docs/digitization.md`](docs/digitization.md) and the other `docs/*.md`
+files for methodology, validation, and known limitations of each phase.
 
 ## Roadmap
 
