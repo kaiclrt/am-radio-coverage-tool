@@ -28,6 +28,9 @@ jobs:
           pip install -e .[dev]
           pip install global-land-mask
 
+      - name: Lint with ruff
+        run: ruff check src/ tests/ scripts/
+
       - name: Run offline test suite
         run: |
           python -m pytest tests/ --ignore=tests/test_digitizer.py -v

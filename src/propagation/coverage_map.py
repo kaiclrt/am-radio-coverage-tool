@@ -7,14 +7,17 @@ project's original scope, with optional finer angular resolution (16, 36,
 360, or any n) when more precision is needed - e.g. for irregular terrain
 where 8 radials would miss a significant conductivity feature.
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
-from radial import (
-    destination_point, radial_field_strength, radial_distance_for_field_strength,
-)
 from curves import get_default as get_curves
+from radial import (
+    destination_point,
+    radial_distance_for_field_strength,
+    radial_field_strength,
+)
 
 CARDINAL_BEARINGS_8 = {
     0: 'N', 45: 'NE', 90: 'E', 135: 'SE',

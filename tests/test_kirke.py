@@ -3,11 +3,12 @@ Tests for the Kirke (equivalent-distance) mixed-path groundwave method.
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from propagation.kirke import mixed_path_field_strength, mixed_path_distance_for_field_strength
 from propagation.curves import GroundwaveCurves
+from propagation.kirke import mixed_path_distance_for_field_strength, mixed_path_field_strength
 
 
 @pytest.fixture(scope='module')

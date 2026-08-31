@@ -8,7 +8,10 @@ The source PDFs are the FCC's own vector graphs, not included in this repo.
 Download them from https://www.fcc.gov/node/38972 ("Groundwave Curves Sets",
 PDF, ~0.5 MB) and extract before running this script.
 """
-import sys, os, json
+import json
+import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from gwdigitizer.core import assign_all_curves
 

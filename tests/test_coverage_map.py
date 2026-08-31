@@ -5,12 +5,16 @@ Offline tests mock terrain.get_conductivity() - no live network needed.
 """
 import os
 import sys
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from propagation.coverage_map import (
-    generate_bearings, bearing_label, coverage_contour, coverage_profile,
+    bearing_label,
+    coverage_contour,
+    coverage_profile,
+    generate_bearings,
 )
 
 

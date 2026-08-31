@@ -18,10 +18,15 @@ across its labeled band).
 """
 import json
 import os
+
 import numpy as np
 
-CONDUCTIVITIES = [5000, 40, 30, 20, 15, 10, 8, 7, 6, 5, 4, 3, 2, 1.5, 1, 0.5, 0.1]  # mS/m, high to low
-CONDUCTIVITY_KEYS = ['5000','40','30','20','15','10','8','7','6','5','4','3','2','1.5','1','0.5','0.1']
+# mS/m, high to low
+CONDUCTIVITIES = [5000, 40, 30, 20, 15, 10, 8, 7, 6, 5, 4, 3, 2, 1.5, 1, 0.5, 0.1]
+CONDUCTIVITY_KEYS = [
+    '5000', '40', '30', '20', '15', '10', '8', '7', '6',
+    '5', '4', '3', '2', '1.5', '1', '0.5', '0.1',
+]
 
 _DATA_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data',
                           'digitized_curves', 'all_frequencies.json')
@@ -29,7 +34,10 @@ _DATA_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data',
 # Center frequencies of the 20 FCC graphs, in kHz. Band edges are the
 # midpoints between adjacent centers, so every AM channel (535-1705 kHz,
 # 10 kHz steps in the Americas) maps unambiguously to exactly one graph.
-_CENTER_FREQS = [550,580,610,640,670,700,740,790,840,890,940,1000,1070,1140,1210,1290,1380,1470,1560,1655]
+_CENTER_FREQS = [
+    550, 580, 610, 640, 670, 700, 740, 790, 840, 890,
+    940, 1000, 1070, 1140, 1210, 1290, 1380, 1470, 1560, 1655,
+]
 
 
 class GroundwaveCurves:
@@ -108,7 +116,8 @@ class GroundwaveCurves:
         for i in range(len(CONDUCTIVITIES)-1):
             hi, lo = CONDUCTIVITIES[i], CONDUCTIVITIES[i+1]
             if lo <= conductivity_mScm <= hi:
-                weight_hi = (np.log10(conductivity_mScm) - np.log10(lo)) / (np.log10(hi) - np.log10(lo))
+                weight_hi = ((np.log10(conductivity_mScm) - np.log10(lo))
+                             / (np.log10(hi) - np.log10(lo)))
                 return CONDUCTIVITY_KEYS[i], CONDUCTIVITY_KEYS[i+1], weight_hi
         raise ValueError(f"conductivity_mScm={conductivity_mScm} not bracketable (unexpected)")
 

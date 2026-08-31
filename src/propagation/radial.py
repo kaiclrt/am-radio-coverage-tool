@@ -21,13 +21,15 @@ published quantity for any licensed AM station (found on the station's
 license or proof-of-performance). A theoretical estimate is provided as a
 clearly-labeled fallback for exploratory use only.
 """
-import sys
 import os
+import sys
+
 import numpy as np
+
 sys.path.insert(0, os.path.dirname(__file__))
-from kirke import mixed_path_field_strength, mixed_path_distance_for_field_strength
-from curves import get_default as get_curves
 import terrain
+from curves import get_default as get_curves
+from kirke import mixed_path_distance_for_field_strength, mixed_path_field_strength
 
 EARTH_RADIUS_KM = 6371.0088
 CHART_REFERENCE_RMS_MVM = 100.0  # the FCC curves' own assumed field intensity at 1km

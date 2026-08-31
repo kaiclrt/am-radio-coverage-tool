@@ -28,8 +28,9 @@ This captures the "recovery effect" (and its opposite) when a path crosses
 from poor to good conductivity ground, or vice versa - a pure single-curve
 lookup at total distance would not.
 """
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.dirname(__file__))
 from curves import get_default as get_curves
 

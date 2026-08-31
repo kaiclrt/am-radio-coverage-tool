@@ -8,12 +8,18 @@ RUN_LIVE_TERRAIN_TESTS=1).
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from propagation.terrain import (
-    _tile_id_for, _tile_url_for, disambiguate_water, classify_terrain,
-    get_conductivity, TERRAIN_CONDUCTIVITY, WORLDCOVER_CLASS_TO_TERRAIN,
+    TERRAIN_CONDUCTIVITY,
+    WORLDCOVER_CLASS_TO_TERRAIN,
+    _tile_id_for,
+    _tile_url_for,
+    classify_terrain,
+    disambiguate_water,
+    get_conductivity,
 )
 
 RUN_LIVE = os.environ.get('RUN_LIVE_TERRAIN_TESTS') == '1'

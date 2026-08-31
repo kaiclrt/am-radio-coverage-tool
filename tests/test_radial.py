@@ -9,16 +9,20 @@ consistent with test_terrain.py.
 """
 import os
 import sys
-import pytest
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from propagation.radial import (
-    destination_point, estimate_theoretical_rms, build_conductivity_segments,
-    radial_field_strength, radial_distance_for_field_strength,
-    CHART_REFERENCE_RMS_MVM,
-)
 from propagation.curves import GroundwaveCurves
+from propagation.radial import (
+    CHART_REFERENCE_RMS_MVM,
+    build_conductivity_segments,
+    destination_point,
+    estimate_theoretical_rms,
+    radial_distance_for_field_strength,
+    radial_field_strength,
+)
 
 RUN_LIVE = os.environ.get('RUN_LIVE_TERRAIN_TESTS') == '1'
 

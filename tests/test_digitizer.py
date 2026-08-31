@@ -9,10 +9,11 @@ directory, or tests will be skipped.
 """
 import os
 import sys
+
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
-from gwdigitizer.core import assign_all_curves, CONDUCTIVITIES
+from gwdigitizer.core import CONDUCTIVITIES, assign_all_curves
 
 GRAPHS_DIR = os.environ.get('GW_GRAPHS_DIR')
 skip_reason = "Set GW_GRAPHS_DIR to the extracted FCC graphs directory to run these tests"
@@ -42,11 +43,12 @@ class TestDigitizer:
         import numpy as np
         vals_at_100 = {}
         for label, pts in bottom.items():
-            kms = [p[0] for p in pts]; mvms = [p[1] for p in pts]
+            kms = [p[0] for p in pts]
+            mvms = [p[1] for p in pts]
             if min(kms) <= 100 <= max(kms):
                 vals_at_100[label] = np.interp(100, kms, mvms)
-        ordered_labels = [l for l in CONDUCTIVITIES if l in vals_at_100]
-        ordered_vals = [vals_at_100[l] for l in ordered_labels]
+        ordered_labels = [lbl for lbl in CONDUCTIVITIES if lbl in vals_at_100]
+        ordered_vals = [vals_at_100[lbl] for lbl in ordered_labels]
         assert all(a >= b for a, b in zip(ordered_vals, ordered_vals[1:])), \
             "Curves are not correctly ordered by conductivity at km=100"
 
@@ -65,7 +67,10 @@ class TestDigitizer:
         assert '30 mS/m' in notes[0] and '40 mS/m' in notes[0]
 
     def test_all_20_frequencies(self):
-        freqs = [550,580,610,640,670,700,740,790,840,890,940,1000,1070,1140,1210,1290,1380,1470,1560,1655]
+        freqs = [
+            550, 580, 610, 640, 670, 700, 740, 790, 840, 890,
+            940, 1000, 1070, 1140, 1210, 1290, 1380, 1470, 1560, 1655,
+        ]
         for f in freqs:
             top, bottom, notes = assign_all_curves(os.path.join(GRAPHS_DIR, f'{f}.pdf'))
             assert len(top) == 17, f"{f} kHz: top panel incomplete"

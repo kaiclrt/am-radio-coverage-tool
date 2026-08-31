@@ -27,7 +27,6 @@ import numpy as np
 
 try:
     import rasterio
-    from rasterio.session import AWSSession
     _HAS_RASTERIO = True
 except ImportError:
     _HAS_RASTERIO = False
@@ -130,7 +129,7 @@ def classify_terrain(lat, lon):
     """
     try:
         wc_class = get_worldcover_class(lat, lon)
-    except Exception as e:
+    except Exception:
         # ESA WorldCover only publishes tiles that contain at least some land
         # (there's nothing to classify over open ocean far from any coast),
         # so a missing-tile error (typically HTTP 404) at a given point is

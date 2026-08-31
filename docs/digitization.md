@@ -34,13 +34,29 @@ sensible values.
 2. **Calibrate axes.** Axis tick label text (extracted from the PDF's text
    layer, not OCR) gives exact pixel↔value mappings for both the top and
    bottom x-axes and the shared log-scale y-axis.
-3. **Label top-panel curves via the right-side legend.** Each graph has an
-   unambiguous legend on the right edge (conductivity values 5000→0.1 with
-   individual leader lines). The leader lines' endpoints where they meet the
-   plot area (x≈720pt) are extracted and matched to each curve's own
-   right-edge point. This is far more reliable than matching inline curve
-   labels, which sit at the end of short diagonal leader lines *away* from
-   the curve itself.
+3. **Label top-panel curves by rank order.** Curves are physically
+   non-crossing (higher conductivity means less attenuation, so a
+   higher-conductivity curve stays above a lower-conductivity one at every
+   distance), so sorting the 17 candidate curves by their right-edge
+   y-position and assigning conductivities in order (5000 → 0.1, highest
+   to lowest) is a reliable, purely geometric labeling method.
+
+   This wasn't the first approach tried. Initially, curves were matched to
+   the right-side legend (conductivity values 5000→0.1 with individual
+   leader lines converging near the plot's right edge). That's a more
+   "self-documenting" method in principle, but proved fragile in practice:
+   greedy nearest-anchor matching occasionally swapped adjacent labels
+   (e.g. 20/30 mS/m) when their leader-line endpoints were only a few
+   pixels apart - a real bug caught by testing, not a hypothetical
+   concern (see `tests/test_curves.py`'s ordering tests, added after
+   this was found). Rank-order replaced it as the primary method and has
+   been validated against all 20 source PDFs since.
+
+   The legend data isn't used for anything currently, not even as a
+   cross-check against the rank-order result - that was considered and
+   explicitly deferred (see the comment in `gwdigitizer/core.py` above the
+   top-curve assignment logic) since rank-order alone already passes
+   cleanly on every available source file.
 4. **Handle near-origin curve fragmentation.** In the source vector artwork,
    curves that nearly converge near the transmitter (all conductivities give
    similar field strength at very short range) are sometimes drawn as a
@@ -52,10 +68,12 @@ sensible values.
    "INVERSE DISTANCE 100 mV/m AT 1 km" asymptote, which all curves
    genuinely follow at short range. Verified to match real digitized values
    to within ~0.5% at the splice point.
-5. **Label bottom-panel curves via continuity.** The bottom panel has no
-   legend of its own. Each bottom curve is matched to the top-panel curve
-   whose value agrees at the 10 km boundary (both panels must agree there,
-   since it's the same physical curve).
+5. **Label bottom-panel curves by rank order too.** Same reasoning and
+   method as step 3. This also replaced an earlier approach (matching each
+   bottom curve to whichever top curve agreed with it at the 10 km
+   boundary) that turned out to have the same greedy-nearest-match fragility
+   as the legend method - close conductivity values could still get
+   mismatched. Rank order is simpler and doesn't have that failure mode.
 6. **Fallback for low-frequency merged curves.** At the lowest frequencies
    (550–640 kHz in this dataset), ground wave attenuation is small enough
    that 2–3 of the highest-conductivity curves (5000, 40, 30 mS/m) are
