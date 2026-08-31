@@ -17,6 +17,8 @@ still open (a web UI, mainly).
 
 See [`docs/digitization.md`](docs/digitization.md) and the other `docs/*.md`
 files for methodology, validation, and known limitations of each phase.
+See [`CHANGELOG.md`](CHANGELOG.md) for a categorized summary of what's been
+built, fixed, and deferred.
 
 ## Installation
 
