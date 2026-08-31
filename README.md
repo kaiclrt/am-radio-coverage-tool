@@ -18,6 +18,38 @@ still open (a web UI, mainly).
 See [`docs/digitization.md`](docs/digitization.md) and the other `docs/*.md`
 files for methodology, validation, and known limitations of each phase.
 
+## Installation
+
+Requires Python 3.9+ (CI actively tests 3.10, 3.11, 3.12 - see
+`.github/workflows/tests.yml`). Clone the repo, then install in editable mode:
+
+```bash
+git clone git@github.com:kaiclrt/am-radio-coverage-tool.git
+cd am-radio-coverage-tool
+pip install -e .
+```
+
+That installs the core dependencies (`numpy`, `pymupdf`) needed for curve
+digitization and interpolation. Optional dependency groups:
+
+```bash
+pip install -e .[dev]       # pytest, for running the test suite
+pip install -e .[terrain]   # rasterio + global-land-mask, for terrain-based
+                             # conductivity estimation (see docs/conductivity.md)
+pip install -e .[dev,terrain]  # both together
+```
+
+`pyproject.toml` is the single source of truth for dependencies - there's
+no separate `requirements.txt` to keep in sync with it.
+
+Run the test suite (excluding `test_digitizer.py`, which needs the FCC's
+source PDFs - see `scripts/digitize_all.py` for why those aren't bundled
+in this repo):
+
+```bash
+python -m pytest tests/ --ignore=tests/test_digitizer.py -v
+```
+
 ## Roadmap
 
 - [x] Digitize all 20 FCC groundwave graphs
