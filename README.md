@@ -52,6 +52,25 @@ in this repo):
 python -m pytest tests/ --ignore=tests/test_digitizer.py -v
 ```
 
+### Tested dependency versions
+
+`pyproject.toml` declares version ranges (a floor of what's known to work,
+a ceiling to avoid an untested future major version silently breaking
+things), not exact pins - this project isn't a library other packages
+depend on, so a full lockfile would add more overhead than benefit at this
+stage. The specific versions below have been confirmed working (all tests
+passing) across two independent environments (Linux/sandbox and Windows):
+
+| Package | Tested version(s) |
+|---|---|
+| Python | 3.10, 3.11, 3.12 (CI-tested); 3.12.10 (Windows, confirmed) |
+| numpy | 2.4.4, 2.5.2 |
+| pymupdf | 1.28.2 |
+| pytest | 9.1.1 |
+| ruff | 0.16.5 |
+| rasterio | 1.5.1 |
+| global-land-mask | (latest as of terrain module development) |
+
 ## Roadmap
 
 - [x] Digitize all 20 FCC groundwave graphs
