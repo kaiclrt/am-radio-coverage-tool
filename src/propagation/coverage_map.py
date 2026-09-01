@@ -7,11 +7,15 @@ project's original scope, with optional finer angular resolution (16, 36,
 360, or any n) when more precision is needed - e.g. for irregular terrain
 where 8 radials would miss a significant conductivity feature.
 """
+from __future__ import annotations
+
 import os
 import sys
+from typing import TypedDict
 
 sys.path.insert(0, os.path.dirname(__file__))
 import numpy as np
+from curves import GroundwaveCurves
 from curves import get_default as get_curves
 from radial import (
     destination_point,
@@ -19,19 +23,41 @@ from radial import (
     radial_field_strength,
 )
 
-CARDINAL_BEARINGS_8 = {
+CARDINAL_BEARINGS_8: dict[int, str] = {
     0: 'N', 45: 'NE', 90: 'E', 135: 'SE',
     180: 'S', 225: 'SW', 270: 'W', 315: 'NW',
 }
 
 
-def generate_bearings(n_radials=8):
+class ContourResult(TypedDict, total=False):
+    bearing_deg: float
+    label: str
+    distance_km: float | None
+    lat: float | None
+    lon: float | None
+    error: str
+
+
+class ProfilePoint(TypedDict):
+    distance_km: float
+    field_mvm: float
+    lat: float
+    lon: float
+
+
+class ProfileResult(TypedDict):
+    bearing_deg: float
+    label: str
+    points: list[ProfilePoint]
+
+
+def generate_bearings(n_radials: int = 8) -> list[float]:
     """Evenly-spaced compass bearings (degrees, 0=North, clockwise),
     starting at North. n_radials=8 gives the standard cardinal directions."""
     return list(np.linspace(0, 360, n_radials, endpoint=False))
 
 
-def bearing_label(bearing_deg, n_radials=8):
+def bearing_label(bearing_deg: float, n_radials: int = 8) -> str:
     """Human-readable label for a bearing, e.g. 'N', 'NE'. Only meaningful
     for n_radials=8 (the standard cardinal set) - returns the numeric
     bearing as a string for other resolutions."""
@@ -40,9 +66,17 @@ def bearing_label(bearing_deg, n_radials=8):
     return f"{bearing_deg:.0f}"
 
 
-def coverage_contour(tx_lat, tx_lon, freq_khz, rms_at_1km_mvm, target_mvm,
-                      n_radials=8, max_search_km=500.0, sample_interval_km=2.0,
-                      curves=None):
+def coverage_contour(
+    tx_lat: float,
+    tx_lon: float,
+    freq_khz: float,
+    rms_at_1km_mvm: float,
+    target_mvm: float,
+    n_radials: int = 8,
+    max_search_km: float = 500.0,
+    sample_interval_km: float = 2.0,
+    curves: GroundwaveCurves | None = None,
+) -> list[ContourResult]:
     """Distance to a target field-strength contour (e.g. an interference
     protection threshold, or a service-area boundary) along each of
     n_radials evenly-spaced bearings from the transmitter.
@@ -57,10 +91,10 @@ def coverage_contour(tx_lat, tx_lon, freq_khz, rms_at_1km_mvm, target_mvm,
     """
     curves = curves or get_curves()
     bearings = generate_bearings(n_radials)
-    results = []
+    results: list[ContourResult] = []
 
     for bearing in bearings:
-        entry = {'bearing_deg': bearing, 'label': bearing_label(bearing, n_radials)}
+        entry: ContourResult = {'bearing_deg': bearing, 'label': bearing_label(bearing, n_radials)}
         try:
             distance = radial_distance_for_field_strength(
                 tx_lat, tx_lon, bearing, freq_khz, rms_at_1km_mvm, target_mvm,
@@ -76,9 +110,17 @@ def coverage_contour(tx_lat, tx_lon, freq_khz, rms_at_1km_mvm, target_mvm,
     return results
 
 
-def coverage_profile(tx_lat, tx_lon, freq_khz, rms_at_1km_mvm,
-                      n_radials=8, max_distance_km=200.0, n_points=20,
-                      sample_interval_km=2.0, curves=None):
+def coverage_profile(
+    tx_lat: float,
+    tx_lon: float,
+    freq_khz: float,
+    rms_at_1km_mvm: float,
+    n_radials: int = 8,
+    max_distance_km: float = 200.0,
+    n_points: int = 20,
+    sample_interval_km: float = 2.0,
+    curves: GroundwaveCurves | None = None,
+) -> list[ProfileResult]:
     """Field strength at n_points evenly-spaced distances (up to
     max_distance_km) along each of n_radials bearings - a full decay
     profile per radial, useful for graded/filled coverage maps rather than
@@ -90,10 +132,10 @@ def coverage_profile(tx_lat, tx_lon, freq_khz, rms_at_1km_mvm,
     curves = curves or get_curves()
     bearings = generate_bearings(n_radials)
     query_distances = np.linspace(max_distance_km / n_points, max_distance_km, n_points)
-    results = []
+    results: list[ProfileResult] = []
 
     for bearing in bearings:
-        points = []
+        points: list[ProfilePoint] = []
         for d in query_distances:
             field = radial_field_strength(
                 tx_lat, tx_lon, bearing, freq_khz, rms_at_1km_mvm, float(d),

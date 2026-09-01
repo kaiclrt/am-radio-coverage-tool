@@ -28,14 +28,24 @@ This captures the "recovery effect" (and its opposite) when a path crosses
 from poor to good conductivity ground, or vice versa - a pure single-curve
 lookup at total distance would not.
 """
+from __future__ import annotations
+
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
+from curves import GroundwaveCurves
 from curves import get_default as get_curves
 
+Segment = tuple[float, float]  # (conductivity_mScm, length_km)
 
-def _walk_segments(freq_khz, segments, query_distance_km, curves):
+
+def _walk_segments(
+    freq_khz: float,
+    segments: list[Segment],
+    query_distance_km: float | None,
+    curves: GroundwaveCurves,
+) -> tuple[float, int, float, float]:
     """Shared walk logic for both mixed_path_field_strength() and
     mixed_path_distance_for_field_strength(). Returns (field_strength_mvm,
     segment_index, distance_into_segment_km, equivalent_distance_km) for
@@ -43,7 +53,7 @@ def _walk_segments(freq_khz, segments, query_distance_km, curves):
     is None, walks the full path and returns the final field strength.
     """
     cumulative = 0.0
-    current_field = None
+    current_field: float | None = None
     d_eq = 0.0  # equivalent distance offset within the *current* segment
 
     for i, (conductivity, length) in enumerate(segments):
@@ -56,6 +66,7 @@ def _walk_segments(freq_khz, segments, query_distance_km, curves):
         if i == 0:
             d_eq = 0.0  # first segment starts at the transmitter, no carry-over
         else:
+            assert current_field is not None
             d_eq = curves.distance_for_field_strength(freq_khz, conductivity, current_field)
 
         if stop_here:
@@ -75,7 +86,12 @@ def _walk_segments(freq_khz, segments, query_distance_km, curves):
     )
 
 
-def mixed_path_field_strength(freq_khz, segments, distance_km=None, curves=None):
+def mixed_path_field_strength(
+    freq_khz: float,
+    segments: list[Segment],
+    distance_km: float | None = None,
+    curves: GroundwaveCurves | None = None,
+) -> float:
     """Field strength (mV/m) along a mixed-conductivity radial, using the
     Kirke/equivalent-distance method.
 
@@ -93,7 +109,12 @@ def mixed_path_field_strength(freq_khz, segments, distance_km=None, curves=None)
     return field
 
 
-def mixed_path_distance_for_field_strength(freq_khz, segments, target_mvm, curves=None):
+def mixed_path_distance_for_field_strength(
+    freq_khz: float,
+    segments: list[Segment],
+    target_mvm: float,
+    curves: GroundwaveCurves | None = None,
+) -> float:
     """Inverse of mixed_path_field_strength(): the distance (km) from the
     transmitter at which the field strength drops to target_mvm, along a
     mixed-conductivity radial. Raises ValueError if the target is never
@@ -106,7 +127,7 @@ def mixed_path_distance_for_field_strength(freq_khz, segments, target_mvm, curve
     curves = curves or get_curves()
 
     cumulative = 0.0
-    current_field = None
+    current_field: float | None = None
     for i, (conductivity, length) in enumerate(segments):
         seg_start = cumulative
         seg_end = cumulative + length
@@ -114,6 +135,7 @@ def mixed_path_distance_for_field_strength(freq_khz, segments, target_mvm, curve
         if i == 0:
             d_eq = 0.0
         else:
+            assert current_field is not None
             d_eq = curves.distance_for_field_strength(freq_khz, conductivity, current_field)
 
         field_at_seg_end = curves.field_strength(freq_khz, conductivity, d_eq + length)

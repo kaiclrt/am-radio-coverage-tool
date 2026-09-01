@@ -3,17 +3,24 @@ FCC Ground Wave Curve Digitizer
 Extracts (distance_km, field_strength_mVm) curves per conductivity from
 FCC groundwave PDF graphs (vector-based, from fcc.gov/node/38972).
 """
+from __future__ import annotations
+
+from typing import Callable
+
 import fitz
 import numpy as np
 
 # mS/m, high to low
-CONDUCTIVITIES = [
+CONDUCTIVITIES: list[str] = [
     '5000', '40', '30', '20', '15', '10', '8', '7', '6',
     '5', '4', '3', '2', '1.5', '1', '0.5', '0.1',
 ]
 
+Fragment = list[fitz.Point]
+CurveResult = dict[str, list[tuple[float, float]]]
 
-def is_straight(items):
+
+def is_straight(items: list) -> bool:
     pts = []
     for it in items:
         if it[0] == 'l':
@@ -28,17 +35,19 @@ def is_straight(items):
     return False
 
 
-def get_clean_fragments(drawings):
+def get_clean_fragments(drawings: list) -> list[Fragment]:
     curves_raw = [d for d in drawings if len(d['items']) > 5 and not is_straight(d['items'])]
 
-    def get_pts(c):
+    def get_pts(c: dict) -> Fragment:
         pts = [c['items'][0][1]] + [it[2] for it in c['items'] if it[0] == 'l']
         return sorted(pts, key=lambda p: p.x)
 
     return [get_pts(c) for c in curves_raw]
 
 
-def get_y_calibration(words):
+def get_y_calibration(
+    words: list,
+) -> tuple[Callable[[float], float], Callable[[float], float]]:
     y_calib = []
     for w in words:
         x0, y0, _x1, y1, text = w[0], w[1], w[2], w[3], w[4]
@@ -52,18 +61,21 @@ def get_y_calibration(words):
     ypx = np.array([c[0] for c in y_calib])
     yval = np.array([np.log10(c[1]) for c in y_calib])
 
-    def px_to_mvm(p):
+    def px_to_mvm(p: float) -> float:
         return 10**np.interp(p, ypx, yval)
 
     yval_rev = yval[::-1]
     ypx_rev = ypx[::-1]
 
-    def mvm_to_px(v):
+    def mvm_to_px(v: float) -> float:
         return np.interp(np.log10(v), yval_rev, ypx_rev)
 
     return px_to_mvm, mvm_to_px
 
-def get_top_x_calibration(words):
+
+def get_top_x_calibration(
+    words: list,
+) -> tuple[Callable[[float], float], Callable[[float], float]]:
     ticks = {}
     for w in words:
         x0, y0, _x1, _y1, text = w[0], w[1], w[2], w[3], w[4]
@@ -73,17 +85,19 @@ def get_top_x_calibration(words):
     xpx = np.array([ticks[k] for k in ticks])
     xval = np.array([np.log10(vals[k]) for k in ticks])
 
-    def px_to_km(p):
+    def px_to_km(p: float) -> float:
         return 10**np.interp(p, xpx, xval)
 
-    def km_to_px(km):
+    def km_to_px(km: float) -> float:
         return np.interp(np.log10(km), xval, xpx)
 
     return px_to_km, km_to_px
 
 
-def get_bottom_x_calibration(words):
-    ticks = {}
+def get_bottom_x_calibration(
+    words: list,
+) -> tuple[Callable[[float], float], Callable[[float], float]]:
+    ticks: dict[str, float] = {}
     for w in words:
         x0, y0, _x1, _y1, text = w[0], w[1], w[2], w[3], w[4]
         if 1065 < y0 < 1080:
@@ -94,15 +108,16 @@ def get_bottom_x_calibration(words):
     xpx = np.array([ticks['10'], ticks['5000']])
     xval = np.array([np.log10(10), np.log10(5000)])
 
-    def px_to_km(p):
+    def px_to_km(p: float) -> float:
         return 10**np.interp(p, xpx, xval)
 
-    def km_to_px(km):
+    def km_to_px(km: float) -> float:
         return np.interp(np.log10(km), xval, xpx)
 
     return px_to_km, km_to_px
 
-def get_legend_anchors(drawings):
+
+def get_legend_anchors(drawings: list) -> dict[str, float] | None:
     pts = []
     for d in drawings:
         for it in d['items']:
@@ -121,7 +136,15 @@ def get_legend_anchors(drawings):
         return None
     return dict(zip(CONDUCTIVITIES, clusters))
 
-def splice_inverse_distance(frag, px_to_km, km_to_px, px_to_mvm, mvm_to_px, x_left=72.0):
+
+def splice_inverse_distance(
+    frag: Fragment,
+    px_to_km: Callable[[float], float],
+    km_to_px: Callable[[float], float],
+    px_to_mvm: Callable[[float], float],
+    mvm_to_px: Callable[[float], float],
+    x_left: float = 72.0,
+) -> Fragment:
     if frag[0].x - x_left < 2:
         return frag
     xs = np.linspace(x_left, frag[0].x, 12)
@@ -133,18 +156,23 @@ def splice_inverse_distance(frag, px_to_km, km_to_px, px_to_mvm, mvm_to_px, x_le
         synth.append(fitz.Point(xp, yp))
     return synth[:-1] + frag
 
-def curve_to_km_mvm(pts, px_to_km, px_to_mvm):
+
+def curve_to_km_mvm(
+    pts: Fragment,
+    px_to_km: Callable[[float], float],
+    px_to_mvm: Callable[[float], float],
+) -> list[tuple[float, float]]:
     return [(float(px_to_km(p.x)), float(px_to_mvm(p.y))) for p in pts]
 
 
-def assign_all_curves(pdf_path):
+def assign_all_curves(pdf_path: str) -> tuple[CurveResult, CurveResult, list[str]]:
     """Full pipeline: returns (top_result, bottom_result, notes) where notes lists any
     approximations made (e.g. a merged-curve duplicate at low frequency)."""
     doc = fitz.open(pdf_path)
     page = doc[0]
     words = page.get_text('words')
     drawings = page.get_drawings()
-    notes = []
+    notes: list[str] = []
 
     fragments = get_clean_fragments(drawings)
     px_to_mvm, mvm_to_px = get_y_calibration(words)
@@ -174,7 +202,7 @@ def assign_all_curves(pdf_path):
     # against a future edge case this project hasn't seen yet (e.g. a differently
     # formatted chart, or new FCC bands, where curves might genuinely cross or the
     # non-crossing assumption otherwise breaks) - revisit if that ever comes up.
-    top_assigned_px = None
+    top_assigned_px: dict[str, Fragment] = {}
 
     if len(top_candidates) == 17:
         ranked = sorted(top_candidates, key=lambda t: t[1][-1].y)
@@ -194,7 +222,7 @@ def assign_all_curves(pdf_path):
         top_log = np.log10(sorted(top_vals, reverse=True))
         bottom_vals = sorted([px_to_mvm(f[0].y) for i, f in bottom_candidates], reverse=True)
         bottom_log = np.log10(bottom_vals)
-        best_skip = None
+        best_skip: int | None = None
         best_err = 1e9
         for skip in range(17):
             remaining = np.delete(bottom_log, skip)
@@ -202,6 +230,7 @@ def assign_all_curves(pdf_path):
             if err < best_err:
                 best_err = err
                 best_skip = skip
+        assert best_skip is not None  # loop always runs 17 times and sets this on iteration 0
         missing_label = CONDUCTIVITIES[best_skip]
         remaining_labels = [lbl for lbl in CONDUCTIVITIES if lbl != missing_label]
         top_assigned_px = {label: fragments[i] for (i, f), label in zip(ranked, remaining_labels)}
@@ -216,7 +245,7 @@ def assign_all_curves(pdf_path):
         )
 
     # --- Splice inverse-distance for any top curves not starting near x=72 ---
-    top_result = {}
+    top_result: CurveResult = {}
     for label, frag in top_assigned_px.items():
         full = splice_inverse_distance(frag, top_px_to_km, top_km_to_px, px_to_mvm, mvm_to_px)
         top_result[label] = curve_to_km_mvm(full, top_px_to_km, px_to_mvm)
@@ -230,7 +259,7 @@ def assign_all_curves(pdf_path):
     ranked_bottom = sorted(bottom_candidates, key=lambda t: t[1][0].y)
     bottom_assigned = {label: frag for (i, frag), label in zip(ranked_bottom, CONDUCTIVITIES)}
 
-    bottom_result = {}
+    bottom_result: CurveResult = {}
     for label, frag in bottom_assigned.items():
         bottom_result[label] = curve_to_km_mvm(frag, bot_px_to_km, px_to_mvm)
 

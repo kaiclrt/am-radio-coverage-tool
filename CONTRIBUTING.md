@@ -79,9 +79,32 @@ in the repo - keep that distinction explicit in any new data integration.
   errors, pyflakes, import sorting, pyupgrade) - see the comment in
   `pyproject.toml`'s `[tool.ruff.lint]` section for why more opinionated
   rule categories (security-lint, blind-except, simplify) are excluded.
-  Run `ruff check src/ tests/ scripts/` before committing; CI enforces
-  this too.
-- No enforced type hints yet (a documented gap - see the project roadmap).
+- **mypy** type-checks `src/`, also configured leniently rather than
+  `--strict` (see `[tool.mypy]` in `pyproject.toml`) - it's there to catch
+  real type inconsistencies, not to demand 100% annotation coverage or
+  fight untyped third-party libraries (fitz/pymupdf, rasterio, and
+  global-land-mask ship no type stubs). Adding type hints to this codebase
+  did catch a couple of real things worth knowing about: an import-order
+  bug in `kirke.py` that would have been a runtime `ImportError`, and a
+  handful of genuine type-narrowing gaps in `gwdigitizer/core.py` and
+  `terrain.py` where a value was implicitly assumed non-`None` past a
+  point where that was actually guaranteed, but not provably so to a type
+  checker (fixed with an explicit `assert` or narrower annotation, not
+  suppressed).
+- **Known environment gotcha**: mypy's `python_version` setting controls
+  syntax-compatibility checking, not what Python versions the project
+  actually supports (that's `requires-python` in `[project]`). Setting it
+  too low relative to installed dependencies' own type stubs can cause
+  spurious failures - e.g. `python_version = "3.10"` initially caused a
+  failure parsing numpy's bundled stub file, which uses Python
+  3.12-only syntax, even though nothing in *this project's* code needed
+  3.12. Keep it at or above the newest Python version actually tested in
+  CI.
+- Run both before committing; CI enforces them too:
+  ```bash
+  ruff check src/ tests/ scripts/
+  mypy src/
+  ```
 
 ## Commit and documentation conventions
 

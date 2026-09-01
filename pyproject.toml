@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0,<10.0", "ruff>=0.16,<1.0"]
+dev = ["pytest>=7.0,<10.0", "ruff>=0.16,<1.0", "mypy>=1.10,<2.1"]
 terrain = ["rasterio>=1.3,<2.0", "global-land-mask>=1.0,<2.0"]
 
 [tool.setuptools.packages.find]
@@ -49,3 +49,16 @@ select = ["E", "F", "I", "UP"]
 # (module level import not at top of file) is a false positive here.
 "src/propagation/*.py" = ["E402"]
 "scripts/*.py" = ["E402"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+# Lenient rather than --strict, matching the same philosophy as the ruff
+# rule selection above: this catches real type inconsistencies (the kind
+# that already caught a couple of real issues during initial setup - see
+# CHANGELOG.md) without demanding 100% annotation coverage or fighting
+# untyped third-party libraries (fitz/pymupdf, rasterio, global-land-mask
+# ship no type stubs, hence ignore_missing_imports above).
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true

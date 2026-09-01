@@ -31,6 +31,9 @@ jobs:
       - name: Lint with ruff
         run: ruff check src/ tests/ scripts/
 
+      - name: Type check with mypy
+        run: mypy src/
+
       - name: Run offline test suite
         run: |
           python -m pytest tests/ --ignore=tests/test_digitizer.py -v

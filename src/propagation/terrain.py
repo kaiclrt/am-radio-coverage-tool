@@ -23,6 +23,8 @@ surveys (like FCC's m3.seq), but it's built entirely from free,
 non-copyrighted sources and gives global coverage - see docs/conductivity.md
 for the reasoning and known limitations.
 """
+from __future__ import annotations
+
 import numpy as np
 
 try:
@@ -44,7 +46,7 @@ except ImportError:
 # Radio Engineer's Handbook and the ARRL Antenna Book. Public domain
 # (US government work, pre-1978 with no copyright renewal on the underlying
 # regulatory text).
-TERRAIN_CONDUCTIVITY = {
+TERRAIN_CONDUCTIVITY: dict[str, float] = {
     'salt_water':        5000,   # Best
     'fresh_water':        1,
     'pastoral_rich_soil': 10,    # e.g. flat farmland, alluvial soil - Good/Very Good
@@ -61,7 +63,7 @@ TERRAIN_CONDUCTIVITY = {
 # WorldCover v100/v200 class codes (both versions use the same 11-class
 # legend). "water" is handled specially (see disambiguate_water below), not
 # mapped directly here.
-WORLDCOVER_CLASS_TO_TERRAIN = {
+WORLDCOVER_CLASS_TO_TERRAIN: dict[int, str | None] = {
     10: 'pastoral_medium',      # Tree cover
     20: 'rocky_mountainous',    # Shrubland
     30: 'pastoral_rich_soil',   # Grassland
@@ -80,7 +82,7 @@ WORLDCOVER_CLASS_TO_TERRAIN = {
 WORLDCOVER_S3_BASE = "https://esa-worldcover.s3.eu-central-1.amazonaws.com/v200/2021/map"
 
 
-def _tile_id_for(lat, lon):
+def _tile_id_for(lat: float, lon: float) -> str:
     """ESA WorldCover 3x3 degree tile ID for the lower-left corner containing
     (lat, lon), e.g. 'N14E120' for a point in the Philippines."""
     tile_lat = int(np.floor(lat / 3.0) * 3)
@@ -90,12 +92,12 @@ def _tile_id_for(lat, lon):
     return f"{lat_str}{lon_str}"
 
 
-def _tile_url_for(lat, lon):
+def _tile_url_for(lat: float, lon: float) -> str:
     tile_id = _tile_id_for(lat, lon)
     return f"{WORLDCOVER_S3_BASE}/ESA_WorldCover_10m_2021_v200_{tile_id}_Map.tif"
 
 
-def get_worldcover_class(lat, lon):
+def get_worldcover_class(lat: float, lon: float) -> int:
     """Query the ESA WorldCover COG (via HTTP range requests, no full download)
     for the land cover class code at (lat, lon). Requires rasterio with GDAL's
     /vsicurl/ support and outbound internet access to amazonaws.com."""
@@ -112,7 +114,7 @@ def get_worldcover_class(lat, lon):
             return int(value[0, 0])
 
 
-def disambiguate_water(lat, lon):
+def disambiguate_water(lat: float, lon: float) -> str:
     """For WorldCover's 'permanent water bodies' class, decide salt vs fresh
     water using an offline landmask (ocean -> salt, otherwise -> fresh)."""
     if not _HAS_LANDMASK:
@@ -122,7 +124,7 @@ def disambiguate_water(lat, lon):
     return 'fresh_water' if is_land else 'salt_water'
 
 
-def classify_terrain(lat, lon):
+def classify_terrain(lat: float, lon: float) -> tuple[str, int | None]:
     """Return (terrain_category, worldcover_class_code) for a lat/lon point.
 
     worldcover_class_code is None when the fallback path is used (see below).
@@ -140,6 +142,7 @@ def classify_terrain(lat, lon):
             return 'salt_water', None
         raise
 
+    terrain: str | None
     if wc_class == 80:
         terrain = disambiguate_water(lat, lon)
     else:
@@ -149,7 +152,7 @@ def classify_terrain(lat, lon):
     return terrain, wc_class
 
 
-def get_conductivity(lat, lon):
+def get_conductivity(lat: float, lon: float) -> tuple[float, str, int | None]:
     """Estimate ground conductivity (mS/m) at (lat, lon) using terrain
     classification. Returns (conductivity_mScm, terrain_category, worldcover_class).
 

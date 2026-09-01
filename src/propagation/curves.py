@@ -16,14 +16,17 @@ frequency, not interpolation between graphs - this matches standard FCC
 engineering practice (each graph is drawn for a specific frequency, valid
 across its labeled band).
 """
+from __future__ import annotations
+
 import json
 import os
 
 import numpy as np
+from numpy.typing import NDArray
 
 # mS/m, high to low
-CONDUCTIVITIES = [5000, 40, 30, 20, 15, 10, 8, 7, 6, 5, 4, 3, 2, 1.5, 1, 0.5, 0.1]
-CONDUCTIVITY_KEYS = [
+CONDUCTIVITIES: list[float] = [5000, 40, 30, 20, 15, 10, 8, 7, 6, 5, 4, 3, 2, 1.5, 1, 0.5, 0.1]
+CONDUCTIVITY_KEYS: list[str] = [
     '5000', '40', '30', '20', '15', '10', '8', '7', '6',
     '5', '4', '3', '2', '1.5', '1', '0.5', '0.1',
 ]
@@ -34,29 +37,29 @@ _DATA_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'data',
 # Center frequencies of the 20 FCC graphs, in kHz. Band edges are the
 # midpoints between adjacent centers, so every AM channel (535-1705 kHz,
 # 10 kHz steps in the Americas) maps unambiguously to exactly one graph.
-_CENTER_FREQS = [
+_CENTER_FREQS: list[int] = [
     550, 580, 610, 640, 670, 700, 740, 790, 840, 890,
     940, 1000, 1070, 1140, 1210, 1290, 1380, 1470, 1560, 1655,
 ]
 
 
 class GroundwaveCurves:
-    def __init__(self, data_path=None):
+    def __init__(self, data_path: str | None = None) -> None:
         path = data_path or _DATA_PATH
         with open(path) as f:
-            self._raw = json.load(f)
-        self._merged_cache = {}  # (freq_key, conductivity_key) -> np.array([[km, mvm], ...])
+            self._raw: dict = json.load(f)
+        self._merged_cache: dict[tuple[int, str], NDArray[np.float64]] = {}
 
     # ---- frequency selection ----
 
-    def nearest_graph_frequency(self, freq_khz):
+    def nearest_graph_frequency(self, freq_khz: float) -> int:
         """Return the FCC graph center frequency (kHz) whose band covers freq_khz."""
         diffs = [abs(freq_khz - c) for c in _CENTER_FREQS]
         return _CENTER_FREQS[int(np.argmin(diffs))]
 
     # ---- curve merging ----
 
-    def _merged_curve(self, freq_key, conductivity_key):
+    def _merged_curve(self, freq_key: int, conductivity_key: str) -> NDArray[np.float64]:
         """Stitch the top (0.1-50km) and bottom (10-5000km) panels into one
         continuous, sorted, deduplicated curve. Top panel is used up to 10km;
         bottom panel beyond that (both agree to <1% in the overlap zone)."""
@@ -78,22 +81,26 @@ class GroundwaveCurves:
 
     # ---- single-conductivity interpolation (distance axis, log-log) ----
 
-    def _field_strength_single_conductivity(self, freq_khz, conductivity_key, distance_km):
+    def _field_strength_single_conductivity(
+        self, freq_khz: float, conductivity_key: str, distance_km: float
+    ) -> float:
         freq_key = self.nearest_graph_frequency(freq_khz)
         curve = self._merged_curve(freq_key, conductivity_key)
-        kms, mvms = curve[:,0], curve[:,1]
+        kms, mvms = curve[:, 0], curve[:, 1]
         if distance_km < kms[0] or distance_km > kms[-1]:
             raise ValueError(
                 f"distance_km={distance_km} outside digitized range "
                 f"[{kms[0]:.3f}, {kms[-1]:.1f}] for {conductivity_key} mS/m at {freq_khz} kHz"
             )
         log_mvm = np.interp(np.log10(distance_km), np.log10(kms), np.log10(mvms))
-        return 10**log_mvm
+        return float(10**log_mvm)
 
-    def _distance_single_conductivity(self, freq_khz, conductivity_key, target_mvm):
+    def _distance_single_conductivity(
+        self, freq_khz: float, conductivity_key: str, target_mvm: float
+    ) -> float:
         freq_key = self.nearest_graph_frequency(freq_khz)
         curve = self._merged_curve(freq_key, conductivity_key)
-        kms, mvms = curve[:,0], curve[:,1]
+        kms, mvms = curve[:, 0], curve[:, 1]
         if target_mvm > mvms[0] or target_mvm < mvms[-1]:
             raise ValueError(
                 f"target_mvm={target_mvm} outside digitized range "
@@ -101,11 +108,11 @@ class GroundwaveCurves:
             )
         # mvms is descending; np.interp needs increasing x, so reverse both arrays
         log_km = np.interp(np.log10(target_mvm), np.log10(mvms[::-1]), np.log10(kms[::-1]))
-        return 10**log_km
+        return float(10**log_km)
 
     # ---- conductivity-axis bracketing (log-log) ----
 
-    def _bracket_conductivities(self, conductivity_mScm):
+    def _bracket_conductivities(self, conductivity_mScm: float) -> tuple[str, str, float]:
         """Find the two standard conductivity curves bracketing the requested value.
         Returns (hi_key, lo_key, weight_hi) where weight_hi is 1.0 exactly at hi,
         0.0 exactly at lo (i.e. it's the log-space fraction of the way from lo to hi)."""
@@ -113,17 +120,19 @@ class GroundwaveCurves:
             return CONDUCTIVITY_KEYS[0], CONDUCTIVITY_KEYS[0], 1.0
         if conductivity_mScm <= CONDUCTIVITIES[-1]:
             return CONDUCTIVITY_KEYS[-1], CONDUCTIVITY_KEYS[-1], 1.0
-        for i in range(len(CONDUCTIVITIES)-1):
-            hi, lo = CONDUCTIVITIES[i], CONDUCTIVITIES[i+1]
+        for i in range(len(CONDUCTIVITIES) - 1):
+            hi, lo = CONDUCTIVITIES[i], CONDUCTIVITIES[i + 1]
             if lo <= conductivity_mScm <= hi:
                 weight_hi = ((np.log10(conductivity_mScm) - np.log10(lo))
                              / (np.log10(hi) - np.log10(lo)))
-                return CONDUCTIVITY_KEYS[i], CONDUCTIVITY_KEYS[i+1], weight_hi
+                return CONDUCTIVITY_KEYS[i], CONDUCTIVITY_KEYS[i + 1], weight_hi
         raise ValueError(f"conductivity_mScm={conductivity_mScm} not bracketable (unexpected)")
 
     # ---- public API ----
 
-    def field_strength(self, freq_khz, conductivity_mScm, distance_km):
+    def field_strength(
+        self, freq_khz: float, conductivity_mScm: float, distance_km: float
+    ) -> float:
         """Field strength in mV/m at the given distance, for a station at freq_khz
         over ground of the given conductivity (mS/m). Interpolates in log-log space
         over both distance and conductivity."""
@@ -132,10 +141,12 @@ class GroundwaveCurves:
             return self._field_strength_single_conductivity(freq_khz, hi_key, distance_km)
         v_hi = self._field_strength_single_conductivity(freq_khz, hi_key, distance_km)
         v_lo = self._field_strength_single_conductivity(freq_khz, lo_key, distance_km)
-        log_v = weight_hi*np.log10(v_hi) + (1-weight_hi)*np.log10(v_lo)
-        return 10**log_v
+        log_v = weight_hi * np.log10(v_hi) + (1 - weight_hi) * np.log10(v_lo)
+        return float(10**log_v)
 
-    def distance_for_field_strength(self, freq_khz, conductivity_mScm, target_mvm):
+    def distance_for_field_strength(
+        self, freq_khz: float, conductivity_mScm: float, target_mvm: float
+    ) -> float:
         """Inverse of field_strength(): distance (km) at which the field strength
         drops to target_mvm, for the given frequency and conductivity."""
         hi_key, lo_key, weight_hi = self._bracket_conductivities(conductivity_mScm)
@@ -143,20 +154,25 @@ class GroundwaveCurves:
             return self._distance_single_conductivity(freq_khz, hi_key, target_mvm)
         d_hi = self._distance_single_conductivity(freq_khz, hi_key, target_mvm)
         d_lo = self._distance_single_conductivity(freq_khz, lo_key, target_mvm)
-        log_d = weight_hi*np.log10(d_hi) + (1-weight_hi)*np.log10(d_lo)
-        return 10**log_d
+        log_d = weight_hi * np.log10(d_hi) + (1 - weight_hi) * np.log10(d_lo)
+        return float(10**log_d)
 
 
-_default_instance = None
+_default_instance: GroundwaveCurves | None = None
 
-def get_default():
+
+def get_default() -> GroundwaveCurves:
     global _default_instance
     if _default_instance is None:
         _default_instance = GroundwaveCurves()
     return _default_instance
 
-def field_strength(freq_khz, conductivity_mScm, distance_km):
+
+def field_strength(freq_khz: float, conductivity_mScm: float, distance_km: float) -> float:
     return get_default().field_strength(freq_khz, conductivity_mScm, distance_km)
 
-def distance_for_field_strength(freq_khz, conductivity_mScm, target_mvm):
+
+def distance_for_field_strength(
+    freq_khz: float, conductivity_mScm: float, target_mvm: float
+) -> float:
     return get_default().distance_for_field_strength(freq_khz, conductivity_mScm, target_mvm)

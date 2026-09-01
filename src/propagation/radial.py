@@ -21,6 +21,8 @@ published quantity for any licensed AM station (found on the station's
 license or proof-of-performance). A theoretical estimate is provided as a
 clearly-labeled fallback for exploratory use only.
 """
+from __future__ import annotations
+
 import os
 import sys
 
@@ -28,14 +30,17 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(__file__))
 import terrain
+from curves import GroundwaveCurves
 from curves import get_default as get_curves
-from kirke import mixed_path_distance_for_field_strength, mixed_path_field_strength
+from kirke import Segment, mixed_path_distance_for_field_strength, mixed_path_field_strength
 
 EARTH_RADIUS_KM = 6371.0088
 CHART_REFERENCE_RMS_MVM = 100.0  # the FCC curves' own assumed field intensity at 1km
 
 
-def destination_point(lat, lon, bearing_deg, distance_km, R=EARTH_RADIUS_KM):
+def destination_point(
+    lat: float, lon: float, bearing_deg: float, distance_km: float, R: float = EARTH_RADIUS_KM
+) -> tuple[float, float]:
     """Great-circle destination point, given a start point, bearing (degrees,
     0=North, 90=East), and distance (km)."""
     lat1 = np.radians(lat)
@@ -48,7 +53,7 @@ def destination_point(lat, lon, bearing_deg, distance_km, R=EARTH_RADIUS_KM):
     return float(np.degrees(lat2)), float(np.degrees(lon2))
 
 
-def estimate_theoretical_rms(power_kw):
+def estimate_theoretical_rms(power_kw: float) -> float:
     """Theoretical unattenuated field intensity (mV/m) at 1km for a short
     lossless vertical monopole radiating power_kw kilowatts, per the
     standard far-field formula E1 = 3*sqrt(P_kW)/d_km*100 (~300*sqrt(P)/d
@@ -61,8 +66,14 @@ def estimate_theoretical_rms(power_kw):
     return 300.0 * np.sqrt(power_kw)
 
 
-def build_conductivity_segments(tx_lat, tx_lon, bearing_deg, max_distance_km,
-                                  sample_interval_km=2.0, min_segment_km=1.0):
+def build_conductivity_segments(
+    tx_lat: float,
+    tx_lon: float,
+    bearing_deg: float,
+    max_distance_km: float,
+    sample_interval_km: float = 2.0,
+    min_segment_km: float = 1.0,
+) -> list[Segment]:
     """Walk outward from (tx_lat, tx_lon) along bearing_deg, sampling ground
     conductivity every sample_interval_km, and merge consecutive
     same-conductivity samples into (conductivity_mScm, length_km) segments
@@ -76,14 +87,14 @@ def build_conductivity_segments(tx_lat, tx_lon, bearing_deg, max_distance_km,
     n_samples = int(np.ceil(max_distance_km / sample_interval_km)) + 1
     sample_distances = np.linspace(0, max_distance_km, n_samples)
 
-    conductivities = []
+    conductivities: list[float] = []
     for d in sample_distances:
         lat, lon = destination_point(tx_lat, tx_lon, bearing_deg, d)
         cond, terrain_type, wc_class = terrain.get_conductivity(lat, lon)
         conductivities.append(cond)
 
     # Merge consecutive equal-conductivity samples into segments
-    segments = []
+    segments: list[Segment] = []
     seg_start_idx = 0
     for i in range(1, len(conductivities)):
         if conductivities[i] != conductivities[seg_start_idx]:
@@ -109,8 +120,16 @@ def build_conductivity_segments(tx_lat, tx_lon, bearing_deg, max_distance_km,
     return segments
 
 
-def radial_field_strength(tx_lat, tx_lon, bearing_deg, freq_khz, rms_at_1km_mvm,
-                           distance_km, sample_interval_km=2.0, curves=None):
+def radial_field_strength(
+    tx_lat: float,
+    tx_lon: float,
+    bearing_deg: float,
+    freq_khz: float,
+    rms_at_1km_mvm: float,
+    distance_km: float,
+    sample_interval_km: float = 2.0,
+    curves: GroundwaveCurves | None = None,
+) -> float:
     """Field strength (mV/m) at distance_km along a radial from the
     transmitter, accounting for terrain-based conductivity changes and
     scaled to the station's actual RMS at 1km."""
@@ -121,10 +140,17 @@ def radial_field_strength(tx_lat, tx_lon, bearing_deg, freq_khz, rms_at_1km_mvm,
     return chart_value * (rms_at_1km_mvm / CHART_REFERENCE_RMS_MVM)
 
 
-def radial_distance_for_field_strength(tx_lat, tx_lon, bearing_deg, freq_khz,
-                                        rms_at_1km_mvm, target_mvm,
-                                        max_search_km=500.0, sample_interval_km=2.0,
-                                        curves=None):
+def radial_distance_for_field_strength(
+    tx_lat: float,
+    tx_lon: float,
+    bearing_deg: float,
+    freq_khz: float,
+    rms_at_1km_mvm: float,
+    target_mvm: float,
+    max_search_km: float = 500.0,
+    sample_interval_km: float = 2.0,
+    curves: GroundwaveCurves | None = None,
+) -> float:
     """Distance (km) along a radial at which field strength drops to
     target_mvm - e.g. for finding a station's contour distance in a given
     direction. Builds segments out to max_search_km; raises if the target
