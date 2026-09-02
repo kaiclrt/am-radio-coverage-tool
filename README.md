@@ -91,7 +91,8 @@ passing) across two independent environments (Linux/sandbox and Windows):
 - [ ] FCC M3 conductivity dataset (`m3.seq`) for higher-precision US data
       (optional upgrade, deferred - terrain-based estimation covers the US
       too, just less precisely)
-- [ ] Web UI
+- [ ] Web UI - design locked in (`docs/web_ui_design.md`,
+      `docs/web_ui_stack.md`), implementation not yet started
 
 ## Data provenance & license
 
