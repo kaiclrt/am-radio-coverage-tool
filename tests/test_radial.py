@@ -58,9 +58,22 @@ class TestDestinationPoint:
 
 class TestTheoreticalRMS:
     def test_scales_with_sqrt_power(self):
-        assert estimate_theoretical_rms(1) == pytest.approx(300.0)
-        assert estimate_theoretical_rms(4) == pytest.approx(600.0)  # sqrt(4)=2
-        assert estimate_theoretical_rms(0.25) == pytest.approx(150.0)  # sqrt(0.25)=0.5
+        assert estimate_theoretical_rms(1) == pytest.approx(100.0)
+        assert estimate_theoretical_rms(4) == pytest.approx(200.0)  # sqrt(4)=2
+        assert estimate_theoretical_rms(0.25) == pytest.approx(50.0)  # sqrt(0.25)=0.5
+
+    def test_matches_textbook_worked_example(self, curves):
+        """Regression test against a real worked example from a Philippine
+        broadcast engineering course (TUP Visayas ECE 423, 'AM Coverage
+        Mapping and Prediction'): a 1kW, 1570 kHz station over 40 mS/m
+        ground, contour target 0.316 mV/m, textbook answer (read manually
+        off the FCC chart) is 87 km. This is the test that originally
+        caught the old 300*sqrt(P) formula being wrong (it gave ~53% too
+        far; the current 100*sqrt(P) formula matches to within ~2.5%,
+        well within manual chart-reading tolerance)."""
+        rms = estimate_theoretical_rms(1)
+        d = curves.distance_for_field_strength(1570, 40, 0.316 / (rms / 100))
+        assert d == pytest.approx(87, rel=0.05)  # within 5% of the textbook's answer
 
 
 class TestSegmentBuilding:

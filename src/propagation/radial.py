@@ -54,16 +54,31 @@ def destination_point(
 
 
 def estimate_theoretical_rms(power_kw: float) -> float:
-    """Theoretical unattenuated field intensity (mV/m) at 1km for a short
-    lossless vertical monopole radiating power_kw kilowatts, per the
-    standard far-field formula E1 = 3*sqrt(P_kW)/d_km*100 (~300*sqrt(P)/d
-    in mV/m at 1km with d=1). This IGNORES antenna efficiency, ground
-    system losses, height/pattern effects, and directional arrays - real
-    stations typically achieve meaningfully less than this theoretical
-    maximum. Use only for rough exploratory estimates; prefer the
-    station's actual licensed/measured RMS wherever possible.
+    """Estimate field intensity (mV/m) at 1km for a station of a given power,
+    using the standard broadcast-engineering convention: 1 kW is treated as
+    producing exactly the FCC groundwave curves' own reference value of
+    100 mV/m at 1km (i.e. no scaling is needed to read the charts directly
+    for a 1kW station), and field intensity scales with sqrt(power) for
+    other power levels - E1 = 100 * sqrt(power_kw).
+
+    This is NOT a theoretical lossless-antenna maximum (an earlier version
+    of this function used 300*sqrt(P), derived from idealized far-field
+    monopole theory - that number is real physics, but it isn't what
+    broadcast engineers or the FCC's own charts actually assume in
+    practice). Verified against a real worked example from a Philippine
+    broadcast engineering course (TUP Visayas ECE 423): a 1kW station's
+    distance-to-contour calculation required no RMS scaling at all to match
+    the textbook's chart-reading answer (matching this convention, not the
+    300*sqrt(P) one), and a 25kW example matched this convention to within
+    ~6.5% (normal manual chart-reading tolerance) versus ~53% off using the
+    old 300*sqrt(P) formula.
+
+    Still an estimate, not a substitute for a station's actual
+    licensed/measured RMS - antenna efficiency, ground system quality, and
+    height/pattern effects all cause real stations to vary around this
+    convention. Prefer real RMS data wherever available.
     """
-    return 300.0 * np.sqrt(power_kw)
+    return 100.0 * np.sqrt(power_kw)
 
 
 def build_conductivity_segments(

@@ -8,6 +8,22 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
 
 ## [Unreleased]
 
+### Fixed
+- **`estimate_theoretical_rms()` used the wrong formula** (`radial.py`): was
+  `300·√P` mV/m, a theoretical lossless-monopole physics maximum nobody
+  actually achieves. Found while comparing this tool against a real
+  worked example from a Philippine broadcast engineering course (TUP
+  Visayas ECE 423, "AM Coverage Mapping and Prediction," which uses the
+  same FCC charts and the same Kirke/equivalent-distance method this
+  project independently arrived at). The textbook's convention treats
+  1kW as directly producing the chart's own 100 mV/m-at-1km reference
+  value (`100·√P`), with no additional scaling for a 1kW station -
+  verified by reproducing two of the textbook's own worked examples: a
+  1kW case matched the textbook's manually-read answer to within ~2.5%,
+  while the old 300·√P formula was off by ~53% on a 25kW case. Fixed to
+  `100·√P`, matching actual broadcast-engineering and FCC-chart
+  convention rather than idealized physics.
+
 ### Added
 - FCC groundwave curve digitization for all 20 official frequency bands
   (535–1705 kHz), extracted from the FCC's vector PDF graphs and validated

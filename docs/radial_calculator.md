@@ -37,9 +37,17 @@ affect real-world RMS in ways a simple formula can't capture reliably.
 This is a standard published quantity found on a station's license or
 proof-of-performance measurements.
 
-`estimate_theoretical_rms(power_kw)` is provided as a fallback for rough
-exploratory use only - it computes the theoretical unattenuated field of
-a lossless short monopole (E₁ = 300·√P mV/m at 1km), which real stations
+`estimate_theoretical_rms(power_kw)` is provided as a fallback for use when
+only power is known - it applies the standard broadcast-engineering
+convention (E₁ = 100·√P mV/m at 1km, i.e. 1kW is treated as directly
+producing the FCC charts' own 100 mV/m-at-1km reference), not a
+theoretical lossless-antenna physics maximum (an earlier version of this
+function used 300·√P, derived that way - see CHANGELOG.md for how that
+was found to be wrong, overestimating coverage by ~53% in a real
+worked-example comparison against a Philippine broadcast engineering
+course). Real stations still vary around this convention depending on
+antenna efficiency and ground system quality - prefer actual licensed RMS
+data wherever available.
 fall meaningfully short of in practice. Prefer real RMS data whenever
 available.
 
