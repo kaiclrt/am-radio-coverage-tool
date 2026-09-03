@@ -9,6 +9,16 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
 ## [Unreleased]
 
 ### Fixed
+- **API error handler was swallowing intentional HTTP responses**
+  (`api/app.py`): the catch-all `@app.errorhandler(Exception)` added for
+  clean error messages caught *everything*, including flask-limiter's
+  `429 Too Many Requests`, silently converting it into a generic `500`
+  and defeating the rate limiter entirely. Caught by testing (a
+  dedicated test asserting `429` appears among repeated-request statuses
+  failed until this was fixed) before it shipped. Fixed by excluding
+  `werkzeug.exceptions.HTTPException` from the catch-all.
+
+### Fixed
 - **`estimate_theoretical_rms()` used the wrong formula** (`radial.py`): was
   `300·√P` mV/m, a theoretical lossless-monopole physics maximum nobody
   actually achieves. Found while comparing this tool against a real
