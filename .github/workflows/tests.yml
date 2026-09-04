@@ -44,3 +44,33 @@ jobs:
       # skipped here since RUN_LIVE_TERRAIN_TESTS is unset by default -
       # they're intended for manual verification, not every CI run, to
       # avoid flaking on network conditions or hitting rate limits.
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # `npm install`, not `npm ci`: this project deliberately doesn't keep
+      # a lockfile (same reasoning as the Python side's version-ranges-only
+      # pyproject.toml - see README "Tested dependency versions"). package.json
+      # declares caret ranges; CI resolving them fresh is the intended check.
+      - name: Install dependencies
+        run: npm install
+
+      - name: Lint with ESLint
+        run: npm run lint
+
+      - name: Check formatting with Prettier
+        run: npm run format:check
+
+      - name: Type-check and build
+        run: npm run build

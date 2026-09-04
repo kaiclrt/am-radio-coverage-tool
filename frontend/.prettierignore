@@ -1,0 +1,9 @@
+dist
+node_modules
+pnpm-lock.yaml
+package-lock.json
+
+# Vendored shadcn/ui source - copied in as-is and left unformatted by our
+# tooling, same as the ESLint ignore in eslint.config.js. Edit freely;
+# just don't expect `npm run format` to touch it.
+src/components/ui

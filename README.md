@@ -92,7 +92,10 @@ passing) across two independent environments (Linux/sandbox and Windows):
       (optional upgrade, deferred - terrain-based estimation covers the US
       too, just less precisely)
 - [ ] Web UI - design locked in (`docs/web_ui_design.md`,
-      `docs/web_ui_stack.md`), implementation not yet started
+      `docs/web_ui_stack.md`); Flask API (`api/`) complete and hardened
+      (`docs/api.md`); React frontend scaffolded (`frontend/` - Vite +
+      React + TS + Tailwind v4 + shadcn/ui + react-leaflet, wired to the
+      API, with the full input/output interface from the design doc)
 
 ## Data provenance & license
 

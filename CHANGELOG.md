@@ -8,6 +8,26 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
 
 ## [Unreleased]
 
+### Added
+- Web UI frontend scaffold (`frontend/`): Vite + React + TypeScript,
+  Tailwind CSS v4, shadcn/ui (source copied into `frontend/src/components/ui/`),
+  Leaflet via react-leaflet, ESLint + Prettier - the stack locked in
+  `docs/web_ui_stack.md`. Implements the full input/output interface from
+  `docs/web_ui_design.md`: the three target-field-strength modes (Primary
+  Service Contour / Day-Night Protection Contours / Custom Contour, with
+  Day-Night rendering two contours on the map at once) and the two
+  power/RMS modes (Licensed/Measured RMS / Estimate from Transmitter
+  Power, the latter with an editable result field and a persistent warning
+  banner). Talks to the existing Flask API in `api/` (via the Vite
+  dev-server proxy) rather than duplicating any propagation logic;
+  handles the API's per-bearing partial-failure shape (`distance_km: null`
+  + `error`) so one bad radial doesn't break the map, and respects its
+  rate limits and input bounds (explicit-submit recalculation, debounced
+  RMS estimate). CI (`.github/workflows/tests.yml`) gains a `frontend` job
+  running ESLint, Prettier `--check`, and a type-checked build. No
+  lockfile is committed, mirroring the Python side's version-ranges-only
+  dependency policy.
+
 ### Fixed
 - **Sea-facing bearings from a coastal transmitter crashed terrain
   classification** (`terrain.py`): ESA WorldCover masks open water to `0`

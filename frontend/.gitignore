@@ -1,0 +1,29 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# No lockfile committed - package.json declares caret ranges and CI runs
+# `npm install` (mirrors the Python side's no-requirements.txt / version-
+# ranges-only pyproject.toml decision - see ../README.md).
+package-lock.json
+
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
