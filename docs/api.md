@@ -130,9 +130,17 @@ development.
 ## Running locally
 
 ```bash
-pip install -e .[api]
+pip install -e .[api,terrain]
 python api/app.py
 ```
+
+`terrain` (rasterio + global-land-mask) is needed alongside `api` for any
+*real* coverage calculation - `coverage_contour()`/`coverage_profile()`
+call `terrain.get_conductivity()` per sample point. Without it the server
+still starts and `/api/health`/`/api/estimate-rms` work fine, but the two
+coverage endpoints fail with a generic 500 (the underlying `ImportError`
+is logged server-side, not returned to the client - see the error-handler
+note above).
 
 Serves on `http://127.0.0.1:5000` in Flask's development server (not for
 production use - see Flask's own docs for WSGI deployment options if this

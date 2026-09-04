@@ -19,13 +19,17 @@ yet — the first `npm install` creates them.)
 
 ```bash
 # 1. Start the API (from the repo root, in its own terminal)
-pip install -e .[api]
+pip install -e .[api,terrain]
 python api/app.py            # serves http://127.0.0.1:5000
 
 # 2. Start the frontend (from this folder)
 npm install
 npm run dev                  # serves http://localhost:5173
 ```
+
+`terrain` is required alongside `api` for real coverage results - without
+it the server starts fine but every "Calculate coverage" click fails with
+a generic 500 (see `docs/api.md`).
 
 The Vite dev server proxies `/api/*` to `http://127.0.0.1:5000` (see
 `vite.config.ts`), so the browser stays same-origin and the API's

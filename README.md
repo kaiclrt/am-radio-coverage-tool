@@ -54,6 +54,26 @@ in this repo):
 python -m pytest tests/ --ignore=tests/test_digitizer.py -v
 ```
 
+## Running the web UI
+
+Two processes, in two terminals - the Python API (also requires Node.js
+20+ for the frontend, not bundled with this repo):
+
+```bash
+# Terminal 1, repo root - the Flask API
+pip install -e .[api,terrain]
+python api/app.py
+
+# Terminal 2, frontend/ - the React UI
+cd frontend
+npm install
+npm run dev
+```
+
+Then open `http://localhost:5173`. See [`docs/api.md`](docs/api.md) for
+the API's endpoints/hardening and [`frontend/README.md`](frontend/README.md)
+for the frontend's stack and how the design maps to the code.
+
 ### Tested dependency versions
 
 `pyproject.toml` declares version ranges (a floor of what's known to work,
