@@ -9,6 +9,21 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
 ## [Unreleased]
 
 ### Fixed
+- **Sea-facing bearings from a coastal transmitter crashed terrain
+  classification** (`terrain.py`): ESA WorldCover masks open water to `0`
+  (nodata) inside tiles that also cover land, but `classify_terrain()` only
+  had a fallback for a *missing* tile (HTTP 404). A `0` therefore hit the
+  "unrecognized class code" path and raised, so e.g. the SW/W bearings from
+  a Manila transmitter (straight out over Manila Bay) failed with
+  `Unrecognized WorldCover class code: 0` while land bearings succeeded -
+  surfaced by the web frontend, which shows per-bearing errors. Fixed by
+  routing nodata through the same offline-landmask check as a missing tile
+  (not-land → `salt_water`; genuine land → still raises, since nodata over
+  real land is a coastline-registration gap, not a sea path). Regression
+  tests added in `tests/test_terrain.py` (`TestNodataHandling`, mocked - no
+  network).
+
+### Fixed
 - **API error handler was swallowing intentional HTTP responses**
   (`api/app.py`): the catch-all `@app.errorhandler(Exception)` added for
   clean error messages caught *everything*, including flask-limiter's

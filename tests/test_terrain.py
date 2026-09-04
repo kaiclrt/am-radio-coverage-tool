@@ -8,10 +8,12 @@ RUN_LIVE_TERRAIN_TESTS=1).
 """
 import os
 import sys
+from unittest.mock import patch
 
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+from propagation import terrain as terrain_mod
 from propagation.terrain import (
     TERRAIN_CONDUCTIVITY,
     WORLDCOVER_CLASS_TO_TERRAIN,
@@ -65,6 +67,41 @@ class TestConductivityTable:
                 continue  # water class, handled separately
             assert terrain in TERRAIN_CONDUCTIVITY, \
                 f"WorldCover class {code} maps to unknown terrain '{terrain}'"
+
+
+class TestNodataHandling:
+    """WorldCover returns 0 (nodata) - not a land-cover class - for open
+    water inside a tile that also covers land, which is what a sea-facing
+    bearing from a coastal transmitter hits. Regression tests for that path
+    (previously raised 'Unrecognized WorldCover class code: 0')."""
+
+    def test_nodata_over_water_falls_back_to_salt_water(self):
+        with patch.object(terrain_mod, 'get_worldcover_class', return_value=0), \
+             patch.object(terrain_mod.globe, 'is_land', return_value=False):
+            terrain, wc_class = classify_terrain(14.55, 120.30)  # Manila Bay
+        assert terrain == 'salt_water'
+        assert wc_class is None  # signals the fallback path was taken
+
+    def test_nodata_conductivity_is_salt_water_value(self):
+        with patch.object(terrain_mod, 'get_worldcover_class', return_value=0), \
+             patch.object(terrain_mod.globe, 'is_land', return_value=False):
+            conductivity, terrain, wc_class = get_conductivity(14.55, 120.30)
+        assert conductivity == TERRAIN_CONDUCTIVITY['salt_water']
+        assert terrain == 'salt_water'
+
+    def test_nodata_over_land_still_raises(self):
+        # nodata where the landmask insists it's land is a genuine gap, not a
+        # sea bearing - must surface, not get silently mislabelled as ocean.
+        with patch.object(terrain_mod, 'get_worldcover_class', return_value=0), \
+             patch.object(terrain_mod.globe, 'is_land', return_value=True):
+            with pytest.raises(ValueError, match='nodata'):
+                classify_terrain(14.60, 121.00)
+
+    def test_genuine_unrecognized_class_still_raises(self):
+        # A real out-of-legend code (not 0) should still be a hard error.
+        with patch.object(terrain_mod, 'get_worldcover_class', return_value=42):
+            with pytest.raises(ValueError, match='Unrecognized WorldCover class code: 42'):
+                classify_terrain(14.60, 121.00)
 
 
 @pytest.mark.skipif(not RUN_LIVE, reason="Set RUN_LIVE_TERRAIN_TESTS=1 to run "

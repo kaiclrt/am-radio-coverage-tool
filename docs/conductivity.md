@@ -46,7 +46,13 @@ land cover data.
    itself treated as a signal the point is open ocean, confirmed against
    the offline landmask before falling back to `salt_water` - a genuine
    network or server error still surfaces normally rather than being
-   silently misread as "ocean".
+   silently misread as "ocean". The **same fallback also handles a
+   `0` (nodata) pixel value**: a tile that *does* cover land still masks
+   the surrounding sea to nodata, so a bearing running from a coastal
+   transmitter out over water reads `0` rather than raising a tile error.
+   `0` is not a land-cover class, so it is routed through the identical
+   landmask check (not-land → `salt_water`; land → raise, since nodata over
+   genuine land is a coastline-registration gap, not a sea path).
 
 ## Attribution requirement
 
@@ -76,6 +82,7 @@ module should include:
 
 | WorldCover class code | Class name | Mapped terrain |
 |---|---|---|
+| 0 | *nodata* (not a class - open water inside a land tile) | landmask fallback (see above) |
 | 10 | Tree cover | `pastoral_medium` |
 | 20 | Shrubland | `rocky_mountainous` |
 | 30 | Grassland | `pastoral_rich_soil` |

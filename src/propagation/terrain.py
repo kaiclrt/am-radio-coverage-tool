@@ -63,6 +63,13 @@ TERRAIN_CONDUCTIVITY: dict[str, float] = {
 # WorldCover v100/v200 class codes (both versions use the same 11-class
 # legend). "water" is handled specially (see disambiguate_water below), not
 # mapped directly here.
+# WorldCover's nodata value. It is NOT a land-cover class - it comes back
+# for a pixel with no classification. In practice that means open water
+# inside a tile that also covers land (WorldCover masks the sea to nodata),
+# which is exactly what a sea-facing bearing from a coastal transmitter
+# hits. Handled like a missing tile: trust the offline landmask.
+WORLDCOVER_NODATA = 0
+
 WORLDCOVER_CLASS_TO_TERRAIN: dict[int, str | None] = {
     10: 'pastoral_medium',      # Tree cover
     20: 'rocky_mountainous',    # Shrubland
@@ -145,6 +152,18 @@ def classify_terrain(lat: float, lon: float) -> tuple[str, int | None]:
     terrain: str | None
     if wc_class == 80:
         terrain = disambiguate_water(lat, lon)
+    elif wc_class == WORLDCOVER_NODATA:
+        # Same handling as a missing tile (see above): nodata means the point
+        # has no land-cover classification, which - inside a tile that does
+        # cover land - means open water. Confirm with the offline landmask
+        # rather than assuming; only raise if the landmask insists it's land
+        # (a genuine coastline-registration gap, not a sea bearing).
+        if _HAS_LANDMASK and not globe.is_land(lat, lon):
+            return 'salt_water', None
+        raise ValueError(
+            f"WorldCover returned nodata at ({lat:.5f}, {lon:.5f}) but the offline "
+            f"landmask flags it as land - no terrain classification available here"
+        )
     else:
         terrain = WORLDCOVER_CLASS_TO_TERRAIN.get(wc_class)
         if terrain is None:
