@@ -114,9 +114,9 @@ in-process test client):
    than wide open, via `flask-cors`. Override with the `FRONTEND_ORIGIN`
    env var (comma-separated) for other deployments.
 
-6. **Request logging.** Every request logs its method/path/remote address
-   on entry and its status code on completion, via Python's standard
-   `logging` module.
+6. **Request logging.** Every request logs its method/path and a client
+   token on entry, and its status code on completion, via Python's
+   standard `logging` module. The token is not the raw IP - see item 9.
 
 7. **Binds `0.0.0.0` by default**, not Flask's own `127.0.0.1` default -
    needed so the server is reachable from outside its own process
@@ -137,16 +137,30 @@ in-process test client):
    the internal compose network. Flip the frontend to `8080:80` to
    expose the UI on purpose.
 
-9. **`ProxyFix` for one proxy hop.** `flask-limiter` and the request log
-   key on `request.remote_addr`, which behind nginx is nginx's own
-   container IP - so every user shares one rate-limit bucket and the log
-   shows `172.18.0.x` for everyone. `api/app.py` wraps the app in
-   `werkzeug.middleware.proxy_fix.ProxyFix(x_for=1)` so both see the real
-   client IP from `X-Forwarded-For`. `x_for=1` (trust exactly one hop) is
-   only safe because item 8 keeps the raw port off the network: nginx is
-   the sole path in, so a client can't inject a forged `X-Forwarded-For`.
-   Run with no proxy and there's simply no header to read - it falls back
-   to the real `remote_addr`.
+9. **`ProxyFix` + hashed client identifier.** Two parts:
+
+   *Resolve the real client.* `flask-limiter` and the request log key on
+   `request.remote_addr`, which behind nginx is nginx's own container IP -
+   so every user would share one rate-limit bucket and the log would show
+   `172.18.0.x` for everyone. `api/app.py` wraps the app in
+   `werkzeug.middleware.proxy_fix.ProxyFix(x_for=1, x_proto=1)` so it sees
+   the real client from `X-Forwarded-For`. `x_for=1` (trust exactly one
+   hop) is only safe because item 8 keeps the raw port off the network:
+   nginx is the sole path in, so a client can't inject a forged
+   `X-Forwarded-For`. Run with no proxy and there's no header to read - it
+   falls back to the real `remote_addr`.
+
+   *Never store it raw.* The resolved IP is only ever an input to
+   `_client_key()`, which returns `h:` + the first 64 bits of
+   `HMAC-SHA256(salt, "<ip>|<utc-date>")`. That token - not the address -
+   is what the in-memory rate-limit store and the logs hold. Same client
+   maps to the same token within a UTC day (per-minute limiting is
+   unaffected), the token rotates at UTC midnight (logs can't correlate an
+   address across days), and it can't be reversed or reproduced without
+   the salt. `RATE_LIMIT_SALT` (env) pins the salt across restarts / for a
+   shared multi-process store; unset, a fresh random salt is generated per
+   process, which is fine for the in-memory store since it resets on
+   restart anyway.
 
 10. **API container runs as non-root.** `api/Dockerfile` creates an
     unprivileged `appuser` (uid 1000) and `USER`s to it before `CMD` -
@@ -162,9 +176,11 @@ in-process test client):
 No authentication (fine for local/personal use; would need adding before
 any multi-user or public deployment), no HTTPS (a local-development
 concern, not this layer's job), and the rate-limit storage is in-memory
-(single-process only). None of these matter for the tool's current scope
-but are worth revisiting before any real deployment beyond local
-development.
+(single-process only). Logs no longer contain raw IPs (item 9), but they
+do contain per-client tokens plus timestamps, so a public deployment
+should still set a log-retention limit. None of these matter for the
+tool's current scope but are worth revisiting before any real deployment
+beyond local development.
 
 ## Running locally
 

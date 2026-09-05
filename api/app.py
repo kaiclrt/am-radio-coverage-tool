@@ -17,9 +17,13 @@ deployment is planned.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import logging
 import os
+import secrets
 import sys
+from datetime import datetime, timezone
 
 from flask import Flask, g, jsonify, request
 from flask_cors import CORS
@@ -55,6 +59,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger('am_coverage_api')
 
+# Silence Werkzeug's own per-request access log ("<ip> - - [...] GET /... 200").
+# It logs the raw socket peer address (which ProxyFix does not touch), and
+# the before/after_request hooks below already log method/path/status with
+# the hashed client token instead - so this line is both a raw-IP leak (if
+# ever run without a proxy) and redundant. WARNING keeps Werkzeug's genuine
+# messages, including its "development server" banner.
+logging.getLogger('werkzeug').setLevel(logging.WARNING)
+
 app = Flask(__name__)
 
 # Trust exactly one proxy hop's X-Forwarded-* headers. In the Docker setup
@@ -72,6 +84,31 @@ app = Flask(__name__)
 # documented middleware pattern, but mypy models wsgi_app as a plain method.
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)  # type: ignore[method-assign]
 
+
+# --- Client identifier (for rate limiting + logging) ----------------------
+# ProxyFix above resolves the real client IP, but neither the in-memory
+# rate-limit store nor the logs ever hold it raw: both use this HMAC token
+# instead. Properties:
+#   - same client -> same token within a UTC day, so per-minute rate
+#     limiting is unaffected;
+#   - the token rotates at UTC midnight, so logs can't be used to correlate
+#     one address across calendar days;
+#   - irreversible without the salt (can't brute-force the ~4e9 IPv4 space).
+# Set RATE_LIMIT_SALT to keep tokens stable across restarts / a shared
+# multi-process store. Unset -> a fresh random salt per process, which is
+# fine for the in-memory store (it resets on restart anyway).
+_RATE_LIMIT_SALT = (os.environ.get('RATE_LIMIT_SALT') or secrets.token_hex(32)).encode()
+
+
+def _client_key() -> str:
+    """Opaque per-client token: HMAC-SHA256(salt, "<ip>|<utc-date>"), first
+    64 bits. Used as the flask-limiter key and in the request log in place
+    of the raw remote address."""
+    ip = get_remote_address() or 'unknown'
+    day = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    digest = hmac.new(_RATE_LIMIT_SALT, f'{ip}|{day}'.encode(), hashlib.sha256).hexdigest()
+    return f'h:{digest[:16]}'
+
 # CORS: restricted to the frontend dev server's origin(s) by default rather
 # than wide open. Override via the FRONTEND_ORIGIN env var (comma-separated)
 # for other deployments. Whitespace around commas is tolerated.
@@ -82,7 +119,7 @@ _allowed_origins = [
 CORS(app, origins=_allowed_origins)
 
 limiter = Limiter(
-    get_remote_address,
+    _client_key,
     app=app,
     default_limits=['60 per minute'],
     storage_uri='memory://',  # fine for a single-process dev/small deployment;
@@ -93,7 +130,7 @@ limiter = Limiter(
 @app.before_request
 def _log_request_start():
     g.request_summary = f"{request.method} {request.path}"
-    logger.info(f"-> {g.request_summary} from {get_remote_address()}")
+    logger.info(f"-> {g.request_summary} from {_client_key()}")
 
 
 @app.after_request

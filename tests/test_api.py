@@ -9,17 +9,17 @@ from unittest.mock import patch
 import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'api'))
+from app import _client_key, limiter
 from app import app as flask_app
-from app import limiter
 from flask import request as flask_request
 
 
-# Registered here (before any request is handled) so a test can observe what
-# request.remote_addr resolves to after the ProxyFix middleware has run -
-# there's no production route that echoes it.
+# Registered here (before any request is handled) so a test can observe both
+# the post-ProxyFix remote address and the hashed client token derived from
+# it - there's no production route that echoes either.
 @flask_app.route('/__test__/remote-addr')
 def _echo_remote_addr():
-    return {'remote_addr': flask_request.remote_addr}
+    return {'remote_addr': flask_request.remote_addr, 'client_key': _client_key()}
 
 
 @pytest.fixture
@@ -260,3 +260,43 @@ class TestProxyFix:
     def test_no_forwarded_header_falls_back_to_real_addr(self, client):
         resp = client.get('/__test__/remote-addr')
         assert resp.get_json()['remote_addr'] == '127.0.0.1'  # test client default
+
+
+class TestClientKeyHashing:
+    """The rate-limit key and request log use an HMAC of the client IP,
+    never the raw address - so neither the limiter store nor the logs ever
+    hold a recoverable IP (see docs/api.md hardening item 9)."""
+
+    def _key_for(self, client, xff):
+        return client.get('/__test__/remote-addr',
+                          headers={'X-Forwarded-For': xff}).get_json()['client_key']
+
+    def test_key_is_hashed_not_the_raw_ip(self, client):
+        resp = client.get('/__test__/remote-addr',
+                          headers={'X-Forwarded-For': '203.0.113.5'})
+        body = resp.get_json()
+        assert body['remote_addr'] == '203.0.113.5'   # still resolved internally
+        assert body['client_key'].startswith('h:')
+        assert '203.0.113.5' not in body['client_key']
+
+    def test_same_ip_same_key(self, client):
+        # rate limiting still buckets a given client consistently
+        assert self._key_for(client, '198.51.100.9') == self._key_for(client, '198.51.100.9')
+
+    def test_different_ips_different_keys(self, client):
+        assert self._key_for(client, '198.51.100.1') != self._key_for(client, '198.51.100.2')
+
+    def test_key_depends_on_the_salt(self):
+        # A different salt -> a different token for the same input, i.e. the
+        # token can't be reproduced (or reversed) without knowing the salt.
+        import app as app_module
+
+        with flask_app.test_request_context('/'):
+            k1 = _client_key()
+            original = app_module._RATE_LIMIT_SALT
+            try:
+                app_module._RATE_LIMIT_SALT = b'a-different-salt'
+                k2 = _client_key()
+            finally:
+                app_module._RATE_LIMIT_SALT = original
+        assert k1 != k2

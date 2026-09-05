@@ -20,10 +20,17 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
   - **`ProxyFix(x_for=1)` on the API** (`api/app.py`): behind nginx,
     `flask-limiter` and the request log were keying on nginx's container
     IP, so the coverage rate limit was one global bucket shared by all
-    users and every log line showed `172.18.0.x`. Now they see the real
-    client IP from `X-Forwarded-For`. `x_for=1` is safe precisely because
-    the port binding above keeps nginx the only path in (no forged
+    users and every log line showed `172.18.0.x`. Now they resolve the
+    real client from `X-Forwarded-For`. `x_for=1` is safe precisely
+    because the port binding above keeps nginx the only path in (no forged
     `X-Forwarded-For`). nginx also now sends `X-Forwarded-Proto`.
+  - **The resolved client IP is never stored or logged raw.** It's only
+    an input to `_client_key()` = `h:` + 64 bits of
+    `HMAC-SHA256(salt, "<ip>|<utc-date>")`; that token is what the
+    in-memory limiter store and the logs hold. Same client → same token
+    within a UTC day (per-minute limiting unaffected), rotates at UTC
+    midnight, irreversible without the salt. `RATE_LIMIT_SALT` (env) pins
+    it across restarts; unset → random per process.
   - **API container runs as non-root** (`appuser`, uid 1000) in
     `api/Dockerfile` - nothing at runtime needs root.
   - `FRONTEND_ORIGIN` parsing now tolerates whitespace around commas.
