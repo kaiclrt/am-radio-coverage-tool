@@ -103,7 +103,17 @@ def coverage_contour(
             )
             lat, lon = destination_point(tx_lat, tx_lon, bearing, distance)
             entry.update({'distance_km': distance, 'lat': lat, 'lon': lon})
-        except ValueError as e:
+        except Exception as e:
+            # Broad by design, not just ValueError (target-not-reached):
+            # terrain.get_conductivity() makes a live network call per
+            # sample point, and a transient failure there - e.g. a
+            # truncated read streaming an ESA WorldCover tile under a
+            # flaky connection - raises rasterio.errors.RasterioIOError,
+            # not ValueError. The whole point of per-bearing isolation is
+            # that one bad bearing (whatever the cause) shouldn't crash
+            # bearings that would otherwise have succeeded - the same
+            # reasoning ruff's BLE (blind-except) rule is deliberately
+            # disabled for project-wide (see pyproject.toml).
             entry.update({'distance_km': None, 'lat': None, 'lon': None, 'error': str(e)})
         results.append(entry)
 

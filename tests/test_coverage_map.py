@@ -83,6 +83,38 @@ class TestCoverageContour:
             assert r['distance_km'] is None
             assert 'error' in r
 
+    def test_non_valueerror_failure_isolated_per_bearing(self):
+        """Regression test: a transient terrain-lookup failure that isn't a
+        ValueError (e.g. rasterio.errors.RasterioIOError from a truncated
+        network read of an ESA WorldCover tile - reproduced live via the
+        Docker setup, see CHANGELOG.md) must still be isolated to the one
+        affected bearing, not crash the whole map. Previously only
+        `except ValueError` was caught here."""
+        # Fail only the very first terrain lookup overall, regardless of
+        # which bearing it belongs to - deterministic and geometry-
+        # independent (a single bearing may make several internal terrain
+        # calls while searching for its target distance, so conditioning
+        # on lat/lon isn't reliably "one bearing only"). The first
+        # bearing's search aborts on that first exception; every
+        # subsequent bearing's calls all succeed.
+        calls = {'n': 0}
+
+        def flaky(lat, lon):
+            calls['n'] += 1
+            if calls['n'] == 1:
+                raise OSError("simulated truncated tile read")
+            return (10, 'x', 0)
+
+        with patch('terrain.get_conductivity', side_effect=flaky):
+            results = coverage_contour(14.6, 121.0, 1140, 200, 2.0,
+                                        n_radials=8, max_search_km=300, sample_interval_km=10)
+
+        assert len(results) == 8
+        failed = [r for r in results if r['distance_km'] is None]
+        succeeded = [r for r in results if r['distance_km'] is not None]
+        assert failed and succeeded  # some bearings hit the fake failure, others didn't
+        assert all('error' in r for r in failed)
+
 
 class TestCoverageProfile:
     def test_result_count_matches_n_radials(self):

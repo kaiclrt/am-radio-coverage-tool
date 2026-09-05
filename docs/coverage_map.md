@@ -51,6 +51,31 @@ whole map over one bad bearing, each bearing's result independently
 carries either a distance or an error message - a map with 7 valid
 bearings and 1 clearly-flagged failure is more useful than no map at all.
 
+`coverage_contour()`'s per-bearing `try/except` catches `Exception`
+broadly, not just `ValueError` (target not reached) - deliberately, since
+`terrain.get_conductivity()` makes a live network call per sample point,
+and a transient failure there (e.g. a truncated read streaming an ESA
+WorldCover tile under a flaky connection) raises
+`rasterio.errors.RasterioIOError`, not `ValueError`. This was caught for
+real, not hypothetically: reproduced live via the Docker setup (see
+`docs/api.md`'s "Running with Docker") when a fresh WSL2 network dropped a
+tile read mid-transfer, crashing the *entire* multi-bearing request with a
+generic 500 instead of isolating the one affected bearing - exactly the
+failure mode this design is meant to prevent. Fixed, with a regression
+test (`test_non_valueerror_failure_isolated_per_bearing`) using an
+injected `OSError` rather than depending on rasterio's exact exception
+hierarchy.
+
+**`coverage_profile()` has the same theoretical exposure and is not yet
+fixed** - it has no per-point/per-bearing exception handling at all, so
+the same kind of transient terrain-lookup failure would crash the whole
+profile request. Left as-is for now since `coverage_profile()` isn't
+currently wired into the web UI (only `coverage_contour()` is, via
+`/api/coverage/contour`) and giving it equivalent partial-failure handling
+needs its own design work (`ProfileResult` has no `error` field the way
+`ContourResult` does - would need one, or a decision to fail the whole
+bearing vs. skip individual points).
+
 ## Validation
 
 Tested in `tests/test_coverage_map.py` (13 tests, all offline via mocked

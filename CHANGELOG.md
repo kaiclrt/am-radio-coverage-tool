@@ -16,7 +16,7 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
   container server-side, so the browser only ever talks to one origin and
   flask-cors's restriction never comes into play in this setup. Building
   and running the real containers (not just writing the Dockerfiles)
-  surfaced two genuine bugs, both fixed:
+  surfaced four genuine bugs, all fixed:
   - `api/app.py` bound Flask's default `127.0.0.1`, invisible to anything
     outside its own container (including another container and Docker's
     own port publishing) - now binds `0.0.0.0` (override via `FLASK_HOST`).
@@ -25,7 +25,41 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
     `terrain.py`'s broad `except ImportError` silently swallowed this into
     a generic 500. Fixed in `api/Dockerfile` with `apt-get install
     libexpat1`.
-  See `docs/api.md`'s "Running with Docker" section.
+  - nginx cached the `api` container's IP at startup and never
+    re-resolved it, so every request silently hung after `api` got
+    recreated (e.g. rebuilding it alone during development) until
+    `frontend` was manually restarted. Fixed with a Docker-DNS `resolver`
+    + variable indirection in `frontend/nginx.conf`.
+  - nginx's 60s default `proxy_read_timeout` was too tight for the
+    coverage endpoints - a real request during testing took ~3.5 minutes
+    on a slow connection (no code defect, just live network calls to ESA
+    WorldCover taking a while). Raised to 300s.
+  - (found alongside, in the core engine rather than Docker/nginx):
+    `coverage_contour()`'s per-bearing isolation only caught `ValueError`,
+    so a transient `RasterioIOError` from one flaky terrain lookup crashed
+    the whole multi-bearing request instead of failing just that bearing -
+    see the `coverage_map.py` entry below.
+  See `docs/api.md`'s "Running with Docker" section for the full story on
+  each.
+
+### Fixed
+- **`coverage_contour()` crashed the whole map on a non-`ValueError`
+  per-bearing failure** (`coverage_map.py`): the per-bearing `try/except`
+  only caught `ValueError` (target not reached within `max_search_km`),
+  but a transient terrain-lookup failure - e.g.
+  `rasterio.errors.RasterioIOError` from a truncated network read
+  streaming an ESA WorldCover tile - isn't a `ValueError`, so it
+  propagated past the per-bearing boundary and crashed the entire
+  multi-bearing request with a generic 500, contradicting the function's
+  own documented contract ("a per-bearing failure doesn't abort the whole
+  map"). Reproduced live (not hypothetically) via the Docker setup when a
+  fresh WSL2 network dropped a tile read mid-transfer. Fixed by catching
+  `Exception` broadly in that loop, matching the same reasoning `terrain.py`
+  already uses for its own broad-except ocean-fallback path (and why
+  ruff's BLE rule is deliberately disabled project-wide - see
+  `pyproject.toml`). `coverage_profile()` has the same theoretical
+  exposure and is not yet fixed - see `docs/coverage_map.md`'s "Known
+  limitations" for why it's deferred (not currently used by the web UI).
 
 ### Added
 - Web UI frontend scaffold (`frontend/`): Vite + React + TypeScript,

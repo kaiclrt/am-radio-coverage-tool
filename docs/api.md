@@ -173,10 +173,10 @@ browser only ever talks to one origin (`:8080`) and flask-cors's
 restriction never comes into play in this setup - `FRONTEND_ORIGIN` in
 `docker-compose.yml` only matters for something hitting `:5000` directly.
 
-Two real bugs were only found by actually building and running this, not
-by inspecting the Dockerfile - consistent with this project's "validate
-against real data/behavior, not just that it looks right" philosophy
-(see `CONTRIBUTING.md`):
+Several real bugs were only found by actually building and running this,
+not by inspecting the Dockerfile - consistent with this project's
+"validate against real data/behavior, not just that it looks right"
+philosophy (see `CONTRIBUTING.md`):
 
 - **`api/app.py` bound `127.0.0.1`** (Flask's own default), which is
   invisible to anything outside that exact container - including another
@@ -191,6 +191,32 @@ against real data/behavior, not just that it looks right" philosophy
   surfacing only as a generic 500 - the real cause only showed up by
   running `python -c "import rasterio"` inside the built container. Fixed
   in `api/Dockerfile` with `apt-get install libexpat1`.
+- **nginx cached a stale IP for the `api` upstream.** A static
+  `proxy_pass http://api:5000/...` resolves that hostname once (at nginx
+  startup) and keeps the resolved IP for the worker's lifetime. Docker
+  assigns the `api` container a *new* internal IP every time it's
+  recreated (e.g. `docker compose up -d --build api` after a code change,
+  without touching `frontend`) - every request then silently hung with
+  nothing ever reaching the api container's logs, until `frontend` was
+  restarted. Fixed in `frontend/nginx.conf` with a `resolver 127.0.0.11`
+  (Docker's embedded DNS) plus a `set $api_upstream ...; proxy_pass
+  $api_upstream;` indirection, which forces nginx to actually re-resolve
+  on a short TTL instead of caching indefinitely.
+- **The coverage endpoints can genuinely take minutes**, not seconds, on
+  an unreliable connection - one real request during testing took ~3.5
+  minutes end-to-end (well past nginx's 60s default `proxy_read_timeout`,
+  which returned a premature 504) purely because of slow live network
+  calls to ESA WorldCover, no code defect involved. Raised
+  `proxy_read_timeout`/`proxy_send_timeout` to 300s in `frontend/nginx.conf`
+  to match this endpoint's actual worst-case latency rather than an
+  arbitrary default.
+
+A fourth, related bug was in the core engine, not Docker/nginx:
+`coverage_contour()`'s per-bearing failure isolation only caught
+`ValueError` (target not reached), so a transient `RasterioIOError` from
+one of those slow/flaky terrain lookups (a truncated tile read) crashed
+the *entire* multi-bearing request with a 500 instead of failing just that
+one bearing - see `docs/coverage_map.md`.
 
 ## Testing
 
