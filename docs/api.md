@@ -118,6 +118,16 @@ in-process test client):
    on entry and its status code on completion, via Python's standard
    `logging` module.
 
+7. **Binds `0.0.0.0` by default**, not Flask's own `127.0.0.1` default -
+   needed so the server is reachable from outside its own process
+   namespace (another Docker container, a separate deployment host), not
+   just from the same machine. Not a new exposure beyond what items 1-6
+   above already assume (no auth, no HTTPS - see below); override with
+   `FLASK_HOST` if a deployment specifically needs to restrict this.
+   Discovered via testing the Docker setup (see "Running with Docker"
+   below) - `127.0.0.1` inside a container is invisible to everything
+   outside that exact container, including Docker's own port publishing.
+
 ### What's still deferred
 
 No authentication (fine for local/personal use; would need adding before
@@ -148,6 +158,39 @@ is ever deployed beyond local development).
 
 CORS is enabled (`flask-cors`) since the frontend (Vite dev server) runs
 on a different port during development.
+
+## Running with Docker
+
+```bash
+docker compose up --build
+```
+
+Builds and runs two containers (see `docker-compose.yml`, `api/Dockerfile`,
+`frontend/Dockerfile`): the API on `http://localhost:5000`, and the built
+frontend served by nginx on `http://localhost:8080`. nginx reverse-proxies
+`/api/*` to the api container server-side (`frontend/nginx.conf`), so the
+browser only ever talks to one origin (`:8080`) and flask-cors's
+restriction never comes into play in this setup - `FRONTEND_ORIGIN` in
+`docker-compose.yml` only matters for something hitting `:5000` directly.
+
+Two real bugs were only found by actually building and running this, not
+by inspecting the Dockerfile - consistent with this project's "validate
+against real data/behavior, not just that it looks right" philosophy
+(see `CONTRIBUTING.md`):
+
+- **`api/app.py` bound `127.0.0.1`** (Flask's own default), which is
+  invisible to anything outside that exact container - including another
+  container on the same Docker network and Docker's own port publishing.
+  Confirmed via a 502 from nginx and a failed `curl` straight at the
+  published port. Fixed by binding `0.0.0.0` (see hardening item 7 above).
+- **`libexpat.so.1` missing from the `python:3.12-slim` base image** -
+  rasterio's wheel bundles GDAL/PROJ, but GDAL still dynamically links
+  against a couple of the *slim* image's stripped-out system libraries.
+  The import failure was swallowed by `terrain.py`'s
+  `except ImportError: _HAS_RASTERIO = False` (see `docs/conductivity.md`),
+  surfacing only as a generic 500 - the real cause only showed up by
+  running `python -c "import rasterio"` inside the built container. Fixed
+  in `api/Dockerfile` with `apt-get install libexpat1`.
 
 ## Testing
 

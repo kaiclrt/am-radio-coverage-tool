@@ -9,6 +9,25 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
 ## [Unreleased]
 
 ### Added
+- Docker support (`docker-compose.yml`, `api/Dockerfile`,
+  `frontend/Dockerfile`): `docker compose up --build` runs the whole web
+  UI (API + frontend) with only Docker installed, no local Python/Node
+  setup. The frontend's nginx reverse-proxies `/api/*` to the api
+  container server-side, so the browser only ever talks to one origin and
+  flask-cors's restriction never comes into play in this setup. Building
+  and running the real containers (not just writing the Dockerfiles)
+  surfaced two genuine bugs, both fixed:
+  - `api/app.py` bound Flask's default `127.0.0.1`, invisible to anything
+    outside its own container (including another container and Docker's
+    own port publishing) - now binds `0.0.0.0` (override via `FLASK_HOST`).
+  - `python:3.12-slim` is missing `libexpat.so.1`, which rasterio's wheel
+    dynamically links against at import time (not at install time) -
+    `terrain.py`'s broad `except ImportError` silently swallowed this into
+    a generic 500. Fixed in `api/Dockerfile` with `apt-get install
+    libexpat1`.
+  See `docs/api.md`'s "Running with Docker" section.
+
+### Added
 - Web UI frontend scaffold (`frontend/`): Vite + React + TypeScript,
   Tailwind CSS v4, shadcn/ui (source copied into `frontend/src/components/ui/`),
   Leaflet via react-leaflet, ESLint + Prettier - the stack locked in

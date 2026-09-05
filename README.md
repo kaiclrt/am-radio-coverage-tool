@@ -74,6 +74,16 @@ Then open `http://localhost:5173`. See [`docs/api.md`](docs/api.md) for
 the API's endpoints/hardening and [`frontend/README.md`](frontend/README.md)
 for the frontend's stack and how the design maps to the code.
 
+**Or, with [Docker](https://docs.docker.com/get-docker/) installed instead
+of Python/Node locally:**
+
+```bash
+docker compose up --build
+```
+
+Then open `http://localhost:8080`. See `docs/api.md`'s "Running with
+Docker" section for how the two containers fit together.
+
 ### Tested dependency versions
 
 `pyproject.toml` declares version ranges (a floor of what's known to work,

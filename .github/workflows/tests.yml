@@ -74,3 +74,15 @@ jobs:
 
       - name: Type-check and build
         run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build only, not `up` - this catches Dockerfile/build-context
+      # regressions (see docs/api.md's "Running with Docker" for two real
+      # bugs only found this way) without depending on a live ESA
+      # WorldCover query succeeding from a CI runner.
+      - name: Build images
+        run: docker compose build

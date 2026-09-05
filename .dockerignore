@@ -1,0 +1,24 @@
+# Kept minimal since api/Dockerfile COPYs specific paths rather than the
+# whole context - this just trims what gets sent to the Docker daemon.
+.git
+.github
+.mypy_cache
+.pytest_cache
+.ruff_cache
+__pycache__
+*.pyc
+.venv
+venv
+
+# Not needed inside the API image
+docs
+tests
+scripts
+*.md
+!README.md
+
+# Frontend has its own build context (./frontend) and .dockerignore: avoid
+# ever sending its node_modules/dist here if the API build is ever run
+# from an IDE that doesn't scope the context correctly.
+frontend/node_modules
+frontend/dist

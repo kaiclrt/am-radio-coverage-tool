@@ -271,4 +271,13 @@ if __name__ == '__main__':
     # arbitrary code execution if reachable by anyone but the developer -
     # default OFF, opt in explicitly and only for local development.
     debug_mode = os.environ.get('FLASK_DEBUG', '0') == '1'
-    app.run(debug=debug_mode, port=5000)
+    # Flask's own default (127.0.0.1) only accepts connections from inside
+    # the same network namespace as the process itself - fine when the
+    # frontend runs on the same host, but unreachable from another Docker
+    # container (confirmed via docker-compose.yml's frontend service
+    # getting a 502) or a genuinely separate deployment host. 0.0.0.0 is
+    # not a new exposure beyond what's already true here (no auth, no
+    # HTTPS - see the hardening notes above); override with FLASK_HOST if
+    # a deployment specifically needs to restrict this.
+    host = os.environ.get('FLASK_HOST', '0.0.0.0')
+    app.run(host=host, debug=debug_mode, port=5000)
