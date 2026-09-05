@@ -1,17 +1,19 @@
 # Local/demo use: `docker compose up --build`, then open http://localhost:8080
 #
-# The api service is not meant to be hit directly by a browser in this
-# setup - the frontend's nginx proxies /api/* to it server-side (see
-# frontend/nginx.conf), so FRONTEND_ORIGIN below only matters if something
-# calls localhost:5000 directly (e.g. curl, or a browser tab pointed
-# straight at the API for debugging).
+# The api service is reached only through the frontend's nginx, which
+# proxies /api/* to it server-side over this compose network (see
+# frontend/nginx.conf). Its published port is bound to 127.0.0.1 so the
+# raw, unauthenticated API is not exposed to the rest of the LAN - CORS
+# (FRONTEND_ORIGIN) is browser-enforced only and does nothing for a
+# direct curl/script. Drop the api `ports:` block entirely if you don't
+# need to poke the API directly from the host.
 services:
   api:
     build:
       context: .
       dockerfile: api/Dockerfile
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       - FRONTEND_ORIGIN=http://localhost:8080,http://127.0.0.1:8080
     restart: unless-stopped
@@ -20,8 +22,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    # Bound to 127.0.0.1: this is a no-auth demo, so it's local-only by
+    # default. Change to "8080:80" to deliberately expose the UI to other
+    # devices on your network.
     ports:
-      - "8080:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       - api
     restart: unless-stopped

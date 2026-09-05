@@ -26,6 +26,7 @@ from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 from propagation.coverage_map import coverage_contour, coverage_profile
@@ -56,11 +57,28 @@ logger = logging.getLogger('am_coverage_api')
 
 app = Flask(__name__)
 
+# Trust exactly one proxy hop's X-Forwarded-* headers. In the Docker setup
+# every request arrives via the frontend's nginx, so without this the rate
+# limiter and request log key on nginx's container IP - i.e. all users
+# share one bucket and the log shows 172.18.0.x for everyone. x_for=1 (not
+# more) is the safe value precisely because there is never more than one
+# proxy in front: the API's own port is bound to 127.0.0.1
+# (docker-compose.yml), so nginx is the only reachable path in and a client
+# can't inject a forged X-Forwarded-For. Running the API with no proxy at
+# all is also fine - there's just no X-Forwarded-For to read, so it falls
+# back to the real remote_addr.
+#
+# The type: ignore is because wrapping app.wsgi_app is Flask's own
+# documented middleware pattern, but mypy models wsgi_app as a plain method.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)  # type: ignore[method-assign]
+
 # CORS: restricted to the frontend dev server's origin(s) by default rather
 # than wide open. Override via the FRONTEND_ORIGIN env var (comma-separated)
-# for other deployments.
+# for other deployments. Whitespace around commas is tolerated.
 _default_origins = 'http://localhost:5173,http://127.0.0.1:5173'
-_allowed_origins = os.environ.get('FRONTEND_ORIGIN', _default_origins).split(',')
+_allowed_origins = [
+    o.strip() for o in os.environ.get('FRONTEND_ORIGIN', _default_origins).split(',') if o.strip()
+]
 CORS(app, origins=_allowed_origins)
 
 limiter = Limiter(

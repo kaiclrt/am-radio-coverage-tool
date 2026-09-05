@@ -28,6 +28,14 @@ RUN pip install --no-cache-dir -e .[api,terrain]
 COPY api/ ./api/
 COPY data/ ./data/
 
+# Drop root: nothing here needs it at runtime (binds 5000, not a privileged
+# <1024 port; reads its own files; makes outbound HTTPS). Limits the blast
+# radius of a container-escape or code-exec bug, and stops an accidental
+# write from clobbering system files. pip installed the package globally as
+# root above, so appuser just needs read access to /app.
+RUN useradd --create-home --uid 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 5000
 
 # Debug mode stays off by default in the image too, same as local (see

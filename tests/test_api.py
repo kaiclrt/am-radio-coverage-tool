@@ -11,6 +11,15 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'api'))
 from app import app as flask_app
 from app import limiter
+from flask import request as flask_request
+
+
+# Registered here (before any request is handled) so a test can observe what
+# request.remote_addr resolves to after the ProxyFix middleware has run -
+# there's no production route that echoes it.
+@flask_app.route('/__test__/remote-addr')
+def _echo_remote_addr():
+    return {'remote_addr': flask_request.remote_addr}
 
 
 @pytest.fixture
@@ -228,3 +237,26 @@ class TestSecurityDefaults:
                             for _ in range(15)]  # limit is 10/minute
             assert 429 in statuses, "expected at least one rate-limited (429) response"
         limiter.enabled = False  # restore for other tests
+
+
+class TestProxyFix:
+    """ProxyFix(x_for=1) makes flask-limiter and the request log key on the
+    real client IP instead of the single reverse-proxy IP they'd otherwise
+    all share (see docs/api.md hardening item 9)."""
+
+    def test_forwarded_for_becomes_remote_addr(self, client):
+        resp = client.get('/__test__/remote-addr',
+                          headers={'X-Forwarded-For': '203.0.113.5'})
+        assert resp.get_json()['remote_addr'] == '203.0.113.5'
+
+    def test_only_one_hop_is_trusted(self, client):
+        # x_for=1: with a chain, the *last* entry (the hop nearest our one
+        # trusted proxy) wins - a client prepending a spoofed IP can't
+        # override it.
+        resp = client.get('/__test__/remote-addr',
+                          headers={'X-Forwarded-For': '1.1.1.1, 203.0.113.5'})
+        assert resp.get_json()['remote_addr'] == '203.0.113.5'
+
+    def test_no_forwarded_header_falls_back_to_real_addr(self, client):
+        resp = client.get('/__test__/remote-addr')
+        assert resp.get_json()['remote_addr'] == '127.0.0.1'  # test client default

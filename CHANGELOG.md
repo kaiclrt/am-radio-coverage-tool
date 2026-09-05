@@ -8,6 +8,26 @@ once it reaches a first tagged release (currently pre-release, 0.1.0).
 
 ## [Unreleased]
 
+### Security
+- Hardened the Docker deployment after an audit of it (see
+  `docs/api.md`'s hardening list, now items 8-10):
+  - **Published container ports bound to `127.0.0.1`** instead of
+    `0.0.0.0`. The API has no auth and CORS only constrains browsers, so
+    a `0.0.0.0` publish put the raw API (and the raw UI) on the whole
+    LAN - confirmed with a headerless `curl` against `:5000`. nginx still
+    reaches the API over the internal compose network; flip the frontend
+    to `8080:80` to expose the UI deliberately.
+  - **`ProxyFix(x_for=1)` on the API** (`api/app.py`): behind nginx,
+    `flask-limiter` and the request log were keying on nginx's container
+    IP, so the coverage rate limit was one global bucket shared by all
+    users and every log line showed `172.18.0.x`. Now they see the real
+    client IP from `X-Forwarded-For`. `x_for=1` is safe precisely because
+    the port binding above keeps nginx the only path in (no forged
+    `X-Forwarded-For`). nginx also now sends `X-Forwarded-Proto`.
+  - **API container runs as non-root** (`appuser`, uid 1000) in
+    `api/Dockerfile` - nothing at runtime needs root.
+  - `FRONTEND_ORIGIN` parsing now tolerates whitespace around commas.
+
 ### Added
 - Docker support (`docker-compose.yml`, `api/Dockerfile`,
   `frontend/Dockerfile`): `docker compose up --build` runs the whole web

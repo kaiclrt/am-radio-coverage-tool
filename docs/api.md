@@ -73,7 +73,7 @@ as a generic 500.
 
 ## Hardening
 
-Six items, all implemented and verified (both via `tests/test_api.py` and
+Ten items, all implemented and verified (both via `tests/test_api.py` and
 a live smoke test against a real running server, not just Flask's
 in-process test client):
 
@@ -127,6 +127,35 @@ in-process test client):
    Discovered via testing the Docker setup (see "Running with Docker"
    below) - `127.0.0.1` inside a container is invisible to everything
    outside that exact container, including Docker's own port publishing.
+
+8. **Published container ports bound to `127.0.0.1`.** Because the API
+   has no auth and CORS only constrains browsers (a `curl`/script sends
+   no `Origin` and doesn't care about the response headers), a `0.0.0.0`
+   port publish would put the raw API - and the raw UI - on the whole
+   LAN. `docker-compose.yml` binds both to loopback
+   (`127.0.0.1:5000`, `127.0.0.1:8080`); nginx still reaches the API over
+   the internal compose network. Flip the frontend to `8080:80` to
+   expose the UI on purpose.
+
+9. **`ProxyFix` for one proxy hop.** `flask-limiter` and the request log
+   key on `request.remote_addr`, which behind nginx is nginx's own
+   container IP - so every user shares one rate-limit bucket and the log
+   shows `172.18.0.x` for everyone. `api/app.py` wraps the app in
+   `werkzeug.middleware.proxy_fix.ProxyFix(x_for=1)` so both see the real
+   client IP from `X-Forwarded-For`. `x_for=1` (trust exactly one hop) is
+   only safe because item 8 keeps the raw port off the network: nginx is
+   the sole path in, so a client can't inject a forged `X-Forwarded-For`.
+   Run with no proxy and there's simply no header to read - it falls back
+   to the real `remote_addr`.
+
+10. **API container runs as non-root.** `api/Dockerfile` creates an
+    unprivileged `appuser` (uid 1000) and `USER`s to it before `CMD` -
+    nothing at runtime needs root (port 5000 isn't privileged, the
+    process only reads its own files and makes outbound HTTPS). Shrinks
+    the blast radius of a container-escape or code-exec bug and stops an
+    accidental write from clobbering system files. The `nginx` image
+    keeps its default model (root master, workers drop to the `nginx`
+    user).
 
 ### What's still deferred
 
